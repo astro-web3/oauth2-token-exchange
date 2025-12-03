@@ -9,3 +9,11 @@ gen:
 test:
     @echo "Running tests..."
     go test ./...
+
+docker-build:
+    @echo "Building Docker image..."
+    docker build -t oauth2-token-exchange:latest .
+
+docker-run:
+    @echo "Running Docker image..."
+    docker run --rm -p 8123:8123 -v $(pwd)/config:/app/config -e APP_ENV=local oauth2-token-exchange:latest
