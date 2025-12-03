@@ -13,18 +13,6 @@ import (
 	"github.com/astro-web3/oauth2-token-exchange/pkg/logger"
 )
 
-type Userinfo struct {
-	Sub               string   `json:"sub"`
-	Name              string   `json:"name,omitempty"`
-	GivenName         string   `json:"given_name,omitempty"`
-	FamilyName        string   `json:"family_name,omitempty"`
-	Email             string   `json:"email,omitempty"`
-	EmailVerified     bool     `json:"email_verified,omitempty"`
-	PreferredUsername string   `json:"preferred_username,omitempty"`
-	Picture           string   `json:"picture,omitempty"`
-	Groups            []string `json:"groups,omitempty"`
-}
-
 type TokenExchangeRequest struct {
 	GrantType          string  `json:"grant_type"`
 	SubjectToken       string  `json:"subject_token"`
@@ -46,7 +34,6 @@ type TokenResponse struct {
 
 type TokenExchanger interface {
 	Exchange(ctx context.Context, pat string) (*TokenResponse, error)
-	GetUserinfo(ctx context.Context, accessToken string) (*Userinfo, error)
 }
 
 type zitadelClient struct {
@@ -99,24 +86,4 @@ func (c *zitadelClient) Exchange(ctx context.Context, pat string) (*TokenRespons
 	}
 
 	return &tokenResp, nil
-}
-
-func (c *zitadelClient) GetUserinfo(ctx context.Context, accessToken string) (*Userinfo, error) {
-	userinfoURL := c.issuer + "/oidc/v1/userinfo"
-
-	var userinfo Userinfo
-	resp, err := httpclient.GetJSON(ctx, userinfoURL, accessToken, &userinfo)
-	if err != nil {
-		return nil, fmt.Errorf("failed to call userinfo endpoint: %w", err)
-	}
-
-	if resp.StatusCode() != http.StatusOK {
-		return nil, fmt.Errorf(
-			"userinfo request failed with status %d: %s",
-			resp.StatusCode(),
-			string(resp.Body()),
-		)
-	}
-
-	return &userinfo, nil
 }

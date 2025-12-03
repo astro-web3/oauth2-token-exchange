@@ -24,7 +24,6 @@ func (m *mockTokenCache) Set(ctx context.Context, patHash string, value *cache.C
 
 type mockTokenExchanger struct {
 	exchangeFunc func(ctx context.Context, pat string) (*zitadel.TokenResponse, error)
-	userinfoFunc func(ctx context.Context, accessToken string) (*zitadel.Userinfo, error)
 }
 
 func (m *mockTokenExchanger) Exchange(ctx context.Context, pat string) (*zitadel.TokenResponse, error) {
@@ -33,30 +32,20 @@ func (m *mockTokenExchanger) Exchange(ctx context.Context, pat string) (*zitadel
 	}
 	return &zitadel.TokenResponse{
 		AccessToken: "test-jwt-token",
-	}, nil
-}
-
-func (m *mockTokenExchanger) GetUserinfo(ctx context.Context, accessToken string) (*zitadel.Userinfo, error) {
-	if m.userinfoFunc != nil {
-		return m.userinfoFunc(ctx, accessToken)
-	}
-	return &zitadel.Userinfo{
-		Sub:   "user-123",
-		Email: "test@example.com",
-		Groups: []string{"group1", "group2"},
+		IDToken:     "header.eyJzdWIiOiJ1c2VyLTEyMyIsImVtYWlsIjoidGVzdEBleGFtcGxlLmNvbSIsImdyb3VwcyI6WyJncm91cDEiLCJncm91cDIiXX0.signature",
 	}, nil
 }
 
 func TestService_AuthorizePAT_EmptyPAT(t *testing.T) {
 	svc := NewService(&mockTokenCache{tokens: make(map[string]*cache.CachedToken)}, &mockTokenExchanger{})
-	
+
 	decision, err := svc.AuthorizePAT(context.Background(), "", 5*time.Minute, map[string]string{
-		"user_id":    "x-user-id",
-		"user_email": "x-user-email",
+		"user_id":     "x-user-id",
+		"user_email":  "x-user-email",
 		"user_groups": "x-user-groups",
 		"user_jwt":    "x-user-jwt",
 	})
-	
+
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -74,16 +63,16 @@ func TestService_AuthorizePAT_CacheHit(t *testing.T) {
 		Email:       "test@example.com",
 		Groups:      []string{"group1"},
 	}
-	
+
 	svc := NewService(mockCache, &mockTokenExchanger{})
-	
+
 	decision, err := svc.AuthorizePAT(context.Background(), "Bearer test-token", 5*time.Minute, map[string]string{
-		"user_id":    "x-user-id",
-		"user_email": "x-user-email",
+		"user_id":     "x-user-id",
+		"user_email":  "x-user-email",
 		"user_groups": "x-user-groups",
 		"user_jwt":    "x-user-jwt",
 	})
-	
+
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -98,16 +87,16 @@ func TestService_AuthorizePAT_CacheHit(t *testing.T) {
 func TestService_AuthorizePAT_CacheMiss(t *testing.T) {
 	cache := &mockTokenCache{tokens: make(map[string]*cache.CachedToken)}
 	exchanger := &mockTokenExchanger{}
-	
+
 	svc := NewService(cache, exchanger)
-	
+
 	decision, err := svc.AuthorizePAT(context.Background(), "Bearer valid-token", 5*time.Minute, map[string]string{
-		"user_id":    "x-user-id",
-		"user_email": "x-user-email",
+		"user_id":     "x-user-id",
+		"user_email":  "x-user-email",
 		"user_groups": "x-user-groups",
 		"user_jwt":    "x-user-jwt",
 	})
-	
+
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -118,4 +107,3 @@ func TestService_AuthorizePAT_CacheMiss(t *testing.T) {
 		t.Errorf("expected user-id header, got %v", decision.Headers)
 	}
 }
-

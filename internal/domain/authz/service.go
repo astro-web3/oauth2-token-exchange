@@ -3,7 +3,10 @@ package authz
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -69,36 +72,33 @@ func (s *service) AuthorizePAT(ctx context.Context, pat string, cacheTTL time.Du
 		}, nil
 	}
 
-	userinfo, err := s.tokenExchanger.GetUserinfo(ctx, pat)
-
-	logger.InfoContext(ctx, "get userinfo", slog.String("userinfo", fmt.Sprintf("%+v", userinfo)))
-
+	idTokenClaims, err := parseIDTokenClaims(tokenResp.IDToken)
 	if err != nil {
 		return &AuthzDecision{
 			Allow:  false,
-			Reason: fmt.Sprintf("get userinfo failed: %v", err),
+			Reason: fmt.Sprintf("parse id token failed: %v", err),
 		}, nil
 	}
 
 	cachedToken := &cache.CachedToken{
 		AccessToken: tokenResp.AccessToken,
-		UserID:      userinfo.Sub,
-		Email:       userinfo.Email,
-		Groups:      userinfo.Groups,
+		UserID:      idTokenClaims.Sub,
+		Email:       idTokenClaims.Email,
+		Groups:      idTokenClaims.Groups,
 	}
 
 	if err := s.tokenCache.Set(ctx, patHash, cachedToken, cacheTTL); err != nil {
 		logger.WarnContext(ctx, "failed to set cache", slog.String("error", err.Error()))
 	}
 
-	claims := &TokenClaims{
-		UserID: userinfo.Sub,
-		Email:  userinfo.Email,
-		Groups: userinfo.Groups,
+	tokenClaims := &TokenClaims{
+		UserID: idTokenClaims.Sub,
+		Email:  idTokenClaims.Email,
+		Groups: idTokenClaims.Groups,
 		JWT:    tokenResp.AccessToken,
 	}
 
-	return s.buildDecisionFromClaims(claims, headerKeys), nil
+	return s.buildDecisionFromClaims(tokenClaims, headerKeys), nil
 }
 
 func (s *service) buildDecision(cached *cache.CachedToken, headerKeys map[string]string) *AuthzDecision {
@@ -146,4 +146,35 @@ func (s *service) buildDecisionFromClaims(claims *TokenClaims, headerKeys map[st
 func hashPAT(pat string) string {
 	hash := sha256.Sum256([]byte(pat))
 	return hex.EncodeToString(hash[:])
+}
+
+type idTokenClaims struct {
+	Sub    string   `json:"sub"`
+	Email  string   `json:"email"`
+	Groups []string `json:"groups"`
+}
+
+func parseIDTokenClaims(idToken string) (*idTokenClaims, error) {
+	if idToken == "" {
+		return nil, errors.New("id token is empty")
+	}
+
+	parts := strings.Split(idToken, ".")
+	if len(parts) != 3 {
+		return nil, fmt.Errorf("invalid jwt format")
+	}
+
+	payloadSegment := parts[1]
+
+	payloadBytes, err := base64.RawURLEncoding.DecodeString(payloadSegment)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode jwt payload: %w", err)
+	}
+
+	var claims idTokenClaims
+	if err := json.Unmarshal(payloadBytes, &claims); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal jwt payload: %w", err)
+	}
+
+	return &claims, nil
 }

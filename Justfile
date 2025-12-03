@@ -5,3 +5,7 @@ dev:
 gen:
     @echo "Generating code..."
     cd pb && buf generate
+
+test:
+    @echo "Running tests..."
+    go test ./...
