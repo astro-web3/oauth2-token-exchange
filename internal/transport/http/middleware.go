@@ -9,6 +9,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const minServerErrorStatus = 500
+
 func loggingMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
@@ -20,7 +22,7 @@ func loggingMiddleware() gin.HandlerFunc {
 		duration := time.Since(start)
 		status := c.Writer.Status()
 
-		if status >= 500 {
+		if status >= minServerErrorStatus {
 			logger.ErrorContext(c.Request.Context(), "request failed",
 				slog.String("method", method),
 				slog.String("path", path),

@@ -1,6 +1,8 @@
 package http
 
 import (
+	"net/http"
+
 	"github.com/astro-web3/oauth2-token-exchange/internal/config"
 	"github.com/gin-gonic/gin"
 )
@@ -18,7 +20,7 @@ func NewRouter(handler *Handler, cfg *config.Config) *gin.Engine {
 	router.Use(loggingMiddleware())
 
 	router.GET("/healthz", func(c *gin.Context) {
-		c.String(200, "ok")
+		c.String(http.StatusOK, "ok")
 	})
 
 	router.Any("/oauth2/token-exchange/*path", handler.Check)

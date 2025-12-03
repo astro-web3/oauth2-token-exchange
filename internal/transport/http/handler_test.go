@@ -1,4 +1,4 @@
-package http
+package http_test
 
 import (
 	"context"
@@ -9,14 +9,20 @@ import (
 
 	"github.com/astro-web3/oauth2-token-exchange/internal/config"
 	authzdomain "github.com/astro-web3/oauth2-token-exchange/internal/domain/authz"
+	httptransport "github.com/astro-web3/oauth2-token-exchange/internal/transport/http"
 	"github.com/gin-gonic/gin"
 )
 
 type mockAppService struct {
-	checkFunc func(ctx context.Context, pat string, cacheTTL time.Duration, headerKeys map[string]string) (*authzdomain.AuthzDecision, error)
+	checkFunc func(_ context.Context, pat string, cacheTTL time.Duration, headerKeys map[string]string) (*authzdomain.AuthzDecision, error)
 }
 
-func (m *mockAppService) Check(ctx context.Context, pat string, cacheTTL time.Duration, headerKeys map[string]string) (*authzdomain.AuthzDecision, error) {
+func (m *mockAppService) Check(
+	ctx context.Context,
+	pat string,
+	cacheTTL time.Duration,
+	headerKeys map[string]string,
+) (*authzdomain.AuthzDecision, error) {
 	if m.checkFunc != nil {
 		return m.checkFunc(ctx, pat, cacheTTL, headerKeys)
 	}
@@ -42,11 +48,11 @@ func TestHandler_Check_MissingAuthorizationHeader(t *testing.T) {
 	mockService := &mockAppService{}
 	cfg := createTestConfig()
 
-	handler := NewHandler(mockService, cfg)
+	handler := httptransport.NewHandler(mockService, cfg)
 	router := gin.New()
 	router.Any("/oauth2/token-exchange/*path", handler.Check)
 
-	req := httptest.NewRequest("GET", "/oauth2/token-exchange/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/oauth2/token-exchange/test", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -59,7 +65,7 @@ func TestHandler_Check_ValidPAT(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	mockService := &mockAppService{
-		checkFunc: func(ctx context.Context, pat string, cacheTTL time.Duration, headerKeys map[string]string) (*authzdomain.AuthzDecision, error) {
+		checkFunc: func(_ context.Context, _ string, _ time.Duration, _ map[string]string) (*authzdomain.AuthzDecision, error) {
 			return &authzdomain.AuthzDecision{
 				Allow: true,
 				Headers: map[string]string{
@@ -73,11 +79,11 @@ func TestHandler_Check_ValidPAT(t *testing.T) {
 	}
 
 	cfg := createTestConfig()
-	handler := NewHandler(mockService, cfg)
+	handler := httptransport.NewHandler(mockService, cfg)
 	router := gin.New()
 	router.Any("/oauth2/token-exchange/*path", handler.Check)
 
-	req := httptest.NewRequest("GET", "/oauth2/token-exchange/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/oauth2/token-exchange/test", nil)
 	req.Header.Set("Authorization", "Bearer valid-token")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -86,14 +92,14 @@ func TestHandler_Check_ValidPAT(t *testing.T) {
 		t.Errorf("expected status %d, got %d", http.StatusOK, w.Code)
 	}
 
-	if w.Header().Get("x-user-id") != "user-123" {
-		t.Errorf("expected x-user-id header, got %s", w.Header().Get("x-user-id"))
+	if w.Header().Get("X-User-Id") != "user-123" {
+		t.Errorf("expected x-user-id header, got %s", w.Header().Get("X-User-Id"))
 	}
-	if w.Header().Get("x-user-email") != "test@example.com" {
-		t.Errorf("expected x-user-email header, got %s", w.Header().Get("x-user-email"))
+	if w.Header().Get("X-User-Email") != "test@example.com" {
+		t.Errorf("expected x-user-email header, got %s", w.Header().Get("X-User-Email"))
 	}
-	if w.Header().Get("x-user-jwt") != "jwt-token-here" {
-		t.Errorf("expected x-user-jwt header, got %s", w.Header().Get("x-user-jwt"))
+	if w.Header().Get("X-User-Jwt") != "jwt-token-here" {
+		t.Errorf("expected x-user-jwt header, got %s", w.Header().Get("X-User-Jwt"))
 	}
 }
 
@@ -101,7 +107,7 @@ func TestHandler_Check_InvalidPAT(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	mockService := &mockAppService{
-		checkFunc: func(ctx context.Context, pat string, cacheTTL time.Duration, headerKeys map[string]string) (*authzdomain.AuthzDecision, error) {
+		checkFunc: func(_ context.Context, _ string, _ time.Duration, _ map[string]string) (*authzdomain.AuthzDecision, error) {
 			return &authzdomain.AuthzDecision{
 				Allow:  false,
 				Reason: "invalid token",
@@ -110,11 +116,11 @@ func TestHandler_Check_InvalidPAT(t *testing.T) {
 	}
 
 	cfg := createTestConfig()
-	handler := NewHandler(mockService, cfg)
+	handler := httptransport.NewHandler(mockService, cfg)
 	router := gin.New()
 	router.Any("/oauth2/token-exchange/*path", handler.Check)
 
-	req := httptest.NewRequest("GET", "/oauth2/token-exchange/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/oauth2/token-exchange/test", nil)
 	req.Header.Set("Authorization", "Bearer invalid-token")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -128,17 +134,17 @@ func TestHandler_Check_ServiceError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	mockService := &mockAppService{
-		checkFunc: func(ctx context.Context, pat string, cacheTTL time.Duration, headerKeys map[string]string) (*authzdomain.AuthzDecision, error) {
+		checkFunc: func(_ context.Context, _ string, _ time.Duration, _ map[string]string) (*authzdomain.AuthzDecision, error) {
 			return nil, context.DeadlineExceeded
 		},
 	}
 
 	cfg := createTestConfig()
-	handler := NewHandler(mockService, cfg)
+	handler := httptransport.NewHandler(mockService, cfg)
 	router := gin.New()
 	router.Any("/oauth2/token-exchange/*path", handler.Check)
 
-	req := httptest.NewRequest("GET", "/oauth2/token-exchange/test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/oauth2/token-exchange/test", nil)
 	req.Header.Set("Authorization", "Bearer token")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -152,7 +158,7 @@ func TestHandler_Check_LowercaseAuthorizationHeader(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	mockService := &mockAppService{
-		checkFunc: func(ctx context.Context, pat string, cacheTTL time.Duration, headerKeys map[string]string) (*authzdomain.AuthzDecision, error) {
+		checkFunc: func(_ context.Context, pat string, _ time.Duration, _ map[string]string) (*authzdomain.AuthzDecision, error) {
 			if pat != "valid-token" {
 				t.Errorf("expected pat 'valid-token', got '%s'", pat)
 			}
@@ -164,12 +170,12 @@ func TestHandler_Check_LowercaseAuthorizationHeader(t *testing.T) {
 	}
 
 	cfg := createTestConfig()
-	handler := NewHandler(mockService, cfg)
+	handler := httptransport.NewHandler(mockService, cfg)
 	router := gin.New()
 	router.Any("/oauth2/token-exchange/*path", handler.Check)
 
-	req := httptest.NewRequest("GET", "/oauth2/token-exchange/test", nil)
-	req.Header.Set("authorization", "Bearer valid-token")
+	req := httptest.NewRequest(http.MethodGet, "/oauth2/token-exchange/test", nil)
+	req.Header.Set("Authorization", "Bearer valid-token")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
