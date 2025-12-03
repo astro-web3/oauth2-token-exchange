@@ -1,0 +1,30 @@
+server:
+  addr: ":8080"
+  mode: "release"
+  read_timeout: 30s
+  write_timeout: 30s
+
+redis:
+  url: "redis://localhost:6379/0"
+  pool_size: 10
+  max_idle: 5
+  max_lifetime: 1h
+
+auth:
+  zitadel:
+    issuer: "https://auth.modellink.ai"
+    client_id: ""
+    client_secret: ""
+  cache_ttl: 5m
+  header_keys:
+    user_id: "x-user-id"
+    user_email: "x-user-email"
+    user_groups: "x-user-groups"
+    user_jwt: "x-user-jwt"
+
+observability:
+  metrics_enabled: true
+  trace_enabled: true
+  tracing_endpoint_url: "http://localhost:4318"
+  log_level: "info"
+

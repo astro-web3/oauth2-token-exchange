@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package envoy.config.core.v3;
+
+option go_package = "github.com/astro-web3/oauth2-token-exchange/pb/gen/go/envoy/config/core/v3";
+
+message HeaderValue {
+  string key = 1;
+  string value = 2;
+}
+
+message HeaderValueOption {
+  HeaderValue header = 1;
+  bool append = 2;
+}
+
+message HeaderMap {
+  repeated HeaderValue headers = 1;
+}
+
+message HttpStatus {
+  int32 code = 1;
+}
+

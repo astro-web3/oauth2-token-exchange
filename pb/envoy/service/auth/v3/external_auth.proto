@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+package envoy.service.auth.v3;
+
+option go_package = "github.com/astro-web3/oauth2-token-exchange/pb/gen/go/envoy/service/auth/v3";
+
+// Authorization service for Envoy ext_authz compatibility
+// Note: Service name must match Envoy standard, cannot be suffixed with "Service"
+service Authorization {
+  rpc Check(CheckRequest) returns (CheckResponse);
+}
+
+message CheckRequest {
+  message Attributes {
+    message Request {
+      HttpRequest http = 1;
+    }
+    Request request = 1;
+  }
+  Attributes attributes = 1;
+}
+
+message HttpRequest {
+  string id = 1;
+  string method = 2;
+  map<string, string> headers = 3;
+  string path = 4;
+  string host = 5;
+  string scheme = 6;
+  string query = 7;
+  string fragment = 8;
+  int64 size = 9;
+  string protocol = 10;
+  string body = 11;
+  string raw_body = 12;
+}
+
+message CheckResponse {
+  HttpResponse http_response = 1;
+}
+
+message HttpResponse {
+  oneof status {
+    OkHttpResponse ok_response = 1;
+    DeniedHttpResponse denied_response = 2;
+  }
+}
+
+message OkHttpResponse {
+  repeated HeaderValueOption headers = 2;
+}
+
+message DeniedHttpResponse {
+  int32 status = 1;
+  repeated HeaderValueOption headers = 2;
+  string body = 3;
+}
+
+message HeaderValueOption {
+  HeaderValue header = 1;
+  bool append = 2;
+}
+
+message HeaderValue {
+  string key = 1;
+  string value = 2;
+}
+

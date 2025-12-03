@@ -1,0 +1,21 @@
+version: v2
+
+modules:
+  - path: .
+    name: buf.build/oauth2-token-exchange/authz
+
+lint:
+  use:
+    - STANDARD
+  except:
+    - RPC_RESPONSE_STANDARD_NAME
+    - RPC_REQUEST_RESPONSE_UNIQUE
+    - SERVICE_SUFFIX
+
+breaking:
+  use:
+    - FILE
+
+deps:
+  - buf.build/googleapis/googleapis
+

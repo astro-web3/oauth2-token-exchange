@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package common.v1;
+
+option go_package = "github.com/astro-web3/oauth2-token-exchange/pb/gen/go/common/v1";
+
+message HeaderKeys {
+  string user_id = 1;
+  string user_email = 2;
+  string user_groups = 3;
+  string user_jwt = 4;
+}
+

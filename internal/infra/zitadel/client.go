@@ -1,0 +1,122 @@
+package zitadel
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"net/url"
+	"strings"
+
+	"log/slog"
+
+	httpclient "github.com/astro-web3/oauth2-token-exchange/pkg/http"
+	"github.com/astro-web3/oauth2-token-exchange/pkg/logger"
+)
+
+type Userinfo struct {
+	Sub               string   `json:"sub"`
+	Name              string   `json:"name,omitempty"`
+	GivenName         string   `json:"given_name,omitempty"`
+	FamilyName        string   `json:"family_name,omitempty"`
+	Email             string   `json:"email,omitempty"`
+	EmailVerified     bool     `json:"email_verified,omitempty"`
+	PreferredUsername string   `json:"preferred_username,omitempty"`
+	Picture           string   `json:"picture,omitempty"`
+	Groups            []string `json:"groups,omitempty"`
+}
+
+type TokenExchangeRequest struct {
+	GrantType          string  `json:"grant_type"`
+	SubjectToken       string  `json:"subject_token"`
+	SubjectTokenType   string  `json:"subject_token_type"`
+	RequestedTokenType *string `json:"requested_token_type,omitempty"`
+	Scope              *string `json:"scope,omitempty"`
+	Audience           *string `json:"audience,omitempty"`
+}
+
+type TokenResponse struct {
+	AccessToken     string `json:"access_token"`
+	TokenType       string `json:"token_type"`
+	IssuedTokenType string `json:"issued_token_type,omitempty"`
+	RefreshToken    string `json:"refresh_token,omitempty"`
+	IDToken         string `json:"id_token,omitempty"`
+	ExpiresIn       int64  `json:"expires_in,omitempty"`
+	Scope           string `json:"scope,omitempty"`
+}
+
+type TokenExchanger interface {
+	Exchange(ctx context.Context, pat string) (*TokenResponse, error)
+	GetUserinfo(ctx context.Context, accessToken string) (*Userinfo, error)
+}
+
+type zitadelClient struct {
+	issuer       string
+	clientID     string
+	clientSecret string
+}
+
+func NewClient(issuer, clientID, clientSecret string) TokenExchanger {
+	issuer = strings.TrimSuffix(issuer, "/")
+	return &zitadelClient{
+		issuer:       issuer,
+		clientID:     clientID,
+		clientSecret: clientSecret,
+	}
+}
+
+func (c *zitadelClient) Exchange(ctx context.Context, pat string) (*TokenResponse, error) {
+	form := url.Values{}
+	form.Set("grant_type", "urn:ietf:params:oauth:grant-type:token-exchange")
+	form.Set("subject_token", pat)
+	form.Set("subject_token_type", "urn:ietf:params:oauth:token-type:access_token")
+	form.Set("requested_token_type", "urn:ietf:params:oauth:token-type:jwt")
+	form.Set("scope", "openid")
+	form.Set("audience", c.clientID)
+
+	tokenEndpoint := c.issuer + "/oauth/v2/token"
+
+	var tokenResp TokenResponse
+	resp, err := httpclient.PostForm(
+		ctx,
+		tokenEndpoint,
+		form,
+		c.clientID,
+		c.clientSecret,
+		&tokenResp,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("token exchange request failed: %w", err)
+	}
+
+	logger.InfoContext(ctx, "token exchange response", slog.String("token_type", tokenResp.TokenType))
+
+	if resp.StatusCode() >= http.StatusBadRequest {
+		return nil, fmt.Errorf(
+			"token exchange failed with status %d: %s",
+			resp.StatusCode(),
+			string(resp.Body()),
+		)
+	}
+
+	return &tokenResp, nil
+}
+
+func (c *zitadelClient) GetUserinfo(ctx context.Context, accessToken string) (*Userinfo, error) {
+	userinfoURL := c.issuer + "/oidc/v1/userinfo"
+
+	var userinfo Userinfo
+	resp, err := httpclient.GetJSON(ctx, userinfoURL, accessToken, &userinfo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to call userinfo endpoint: %w", err)
+	}
+
+	if resp.StatusCode() != http.StatusOK {
+		return nil, fmt.Errorf(
+			"userinfo request failed with status %d: %s",
+			resp.StatusCode(),
+			string(resp.Body()),
+		)
+	}
+
+	return &userinfo, nil
+}

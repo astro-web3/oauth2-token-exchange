@@ -1,0 +1,145 @@
+package authz
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/astro-web3/oauth2-token-exchange/internal/infra/cache"
+	"github.com/astro-web3/oauth2-token-exchange/internal/infra/zitadel"
+	"github.com/astro-web3/oauth2-token-exchange/pkg/logger"
+	"log/slog"
+)
+
+type Service interface {
+	AuthorizePAT(ctx context.Context, pat string, cacheTTL time.Duration, headerKeys map[string]string) (*AuthzDecision, error)
+}
+
+type service struct {
+	tokenCache     cache.TokenCache
+	tokenExchanger zitadel.TokenExchanger
+}
+
+func NewService(tokenCache cache.TokenCache, tokenExchanger zitadel.TokenExchanger) Service {
+	return &service{
+		tokenCache:     tokenCache,
+		tokenExchanger: tokenExchanger,
+	}
+}
+
+func (s *service) AuthorizePAT(ctx context.Context, pat string, cacheTTL time.Duration, headerKeys map[string]string) (*AuthzDecision, error) {
+	if pat == "" {
+		return &AuthzDecision{
+			Allow:  false,
+			Reason: "PAT is empty",
+		}, nil
+	}
+
+	pat = strings.TrimPrefix(pat, "Bearer ")
+	pat = strings.TrimSpace(pat)
+
+	if pat == "" {
+		return &AuthzDecision{
+			Allow:  false,
+			Reason: "PAT is empty after trimming",
+		}, nil
+	}
+
+	patHash := hashPAT(pat)
+
+	cached, err := s.tokenCache.Get(ctx, patHash)
+	if err != nil {
+		logger.WarnContext(ctx, "failed to get from cache, will exchange token", slog.String("error", err.Error()))
+	}
+
+	if cached != nil {
+		return s.buildDecision(cached, headerKeys), nil
+	}
+
+	tokenResp, err := s.tokenExchanger.Exchange(ctx, pat)
+	if err != nil {
+		return &AuthzDecision{
+			Allow:  false,
+			Reason: fmt.Sprintf("token exchange failed: %v", err),
+		}, nil
+	}
+
+	userinfo, err := s.tokenExchanger.GetUserinfo(ctx, tokenResp.AccessToken)
+	if err != nil {
+		return &AuthzDecision{
+			Allow:  false,
+			Reason: fmt.Sprintf("get userinfo failed: %v", err),
+		}, nil
+	}
+
+	cachedToken := &cache.CachedToken{
+		AccessToken: tokenResp.AccessToken,
+		UserID:      userinfo.Sub,
+		Email:       userinfo.Email,
+		Groups:      userinfo.Groups,
+	}
+
+	if err := s.tokenCache.Set(ctx, patHash, cachedToken, cacheTTL); err != nil {
+		logger.WarnContext(ctx, "failed to set cache", slog.String("error", err.Error()))
+	}
+
+	claims := &TokenClaims{
+		UserID: userinfo.Sub,
+		Email:  userinfo.Email,
+		Groups: userinfo.Groups,
+		JWT:    tokenResp.AccessToken,
+	}
+
+	return s.buildDecisionFromClaims(claims, headerKeys), nil
+}
+
+func (s *service) buildDecision(cached *cache.CachedToken, headerKeys map[string]string) *AuthzDecision {
+	headers := make(map[string]string)
+	if cached.UserID != "" {
+		headers[headerKeys["user_id"]] = cached.UserID
+	}
+	if cached.Email != "" {
+		headers[headerKeys["user_email"]] = cached.Email
+	}
+	if len(cached.Groups) > 0 {
+		headers[headerKeys["user_groups"]] = strings.Join(cached.Groups, ",")
+	}
+	if cached.AccessToken != "" {
+		headers[headerKeys["user_jwt"]] = cached.AccessToken
+	}
+
+	return &AuthzDecision{
+		Allow:   true,
+		Headers: headers,
+	}
+}
+
+func (s *service) buildDecisionFromClaims(claims *TokenClaims, headerKeys map[string]string) *AuthzDecision {
+	headers := make(map[string]string)
+	if claims.UserID != "" {
+		headers[headerKeys["user_id"]] = claims.UserID
+	}
+	if claims.Email != "" {
+		headers[headerKeys["user_email"]] = claims.Email
+	}
+	if len(claims.Groups) > 0 {
+		headers[headerKeys["user_groups"]] = strings.Join(claims.Groups, ",")
+	}
+	if claims.JWT != "" {
+		headers[headerKeys["user_jwt"]] = claims.JWT
+	}
+
+	return &AuthzDecision{
+		Allow:   true,
+		Headers: headers,
+	}
+}
+
+func hashPAT(pat string) string {
+	hash := sha256.Sum256([]byte(pat))
+	return hex.EncodeToString(hash[:])
+}
+
