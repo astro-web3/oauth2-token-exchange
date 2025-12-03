@@ -19,10 +19,8 @@ type Config struct {
 	} `mapstructure:"server"`
 
 	Redis struct {
-		URL         string        `mapstructure:"url"`
-		PoolSize    int           `mapstructure:"pool_size"`
-		MaxIdle     int           `mapstructure:"max_idle"`
-		MaxLifetime time.Duration `mapstructure:"max_lifetime"`
+		URL      string `mapstructure:"url"`
+		PoolSize int    `mapstructure:"pool_size"`
 	} `mapstructure:"redis"`
 
 	Auth struct {
@@ -59,7 +57,7 @@ func MustLoad() *Config {
 	v.AddConfigPath(".")
 
 	v.AutomaticEnv()
-	v.SetEnvPrefix("OAUTH2_AUTHZ")
+	v.SetEnvPrefix("OAUTH2_TOKEN_EXCHANGE")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	if err := v.ReadInConfig(); err != nil {

@@ -8,10 +8,11 @@ import (
 	"strings"
 	"time"
 
+	"log/slog"
+
 	"github.com/astro-web3/oauth2-token-exchange/internal/infra/cache"
 	"github.com/astro-web3/oauth2-token-exchange/internal/infra/zitadel"
 	"github.com/astro-web3/oauth2-token-exchange/pkg/logger"
-	"log/slog"
 )
 
 type Service interface {
@@ -60,6 +61,7 @@ func (s *service) AuthorizePAT(ctx context.Context, pat string, cacheTTL time.Du
 	}
 
 	tokenResp, err := s.tokenExchanger.Exchange(ctx, pat)
+
 	if err != nil {
 		return &AuthzDecision{
 			Allow:  false,
@@ -67,7 +69,10 @@ func (s *service) AuthorizePAT(ctx context.Context, pat string, cacheTTL time.Du
 		}, nil
 	}
 
-	userinfo, err := s.tokenExchanger.GetUserinfo(ctx, tokenResp.AccessToken)
+	userinfo, err := s.tokenExchanger.GetUserinfo(ctx, pat)
+
+	logger.InfoContext(ctx, "get userinfo", slog.String("userinfo", fmt.Sprintf("%+v", userinfo)))
+
 	if err != nil {
 		return &AuthzDecision{
 			Allow:  false,
@@ -142,4 +147,3 @@ func hashPAT(pat string) string {
 	hash := sha256.Sum256([]byte(pat))
 	return hex.EncodeToString(hash[:])
 }
-

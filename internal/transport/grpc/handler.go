@@ -5,26 +5,34 @@ import (
 	"fmt"
 	"strings"
 
+	"log/slog"
+
+	"connectrpc.com/connect"
 	"github.com/astro-web3/oauth2-token-exchange/internal/app/authz"
 	"github.com/astro-web3/oauth2-token-exchange/internal/config"
-	"github.com/astro-web3/oauth2-token-exchange/pkg/logger"
-	"github.com/astro-web3/oauth2-token-exchange/pkg/tracer"
 	authv3 "github.com/astro-web3/oauth2-token-exchange/pb/gen/go/envoy/service/auth/v3"
 	authv3connect "github.com/astro-web3/oauth2-token-exchange/pb/gen/go/envoy/service/auth/v3/authv3connect"
-	"connectrpc.com/connect"
+	"github.com/astro-web3/oauth2-token-exchange/pkg/logger"
+	"github.com/astro-web3/oauth2-token-exchange/pkg/tracer"
 	"go.opentelemetry.io/otel/attribute"
-	"log/slog"
 )
 
 type Handler struct {
 	appService authz.Service
 	cfg        *config.Config
+	headerKeys map[string]string
 }
 
 func NewHandler(appService authz.Service, cfg *config.Config) authv3connect.AuthorizationHandler {
 	return &Handler{
 		appService: appService,
 		cfg:        cfg,
+		headerKeys: map[string]string{
+			"user_id":     cfg.Auth.HeaderKeys.UserID,
+			"user_email":  cfg.Auth.HeaderKeys.UserEmail,
+			"user_groups": cfg.Auth.HeaderKeys.UserGroups,
+			"user_jwt":    cfg.Auth.HeaderKeys.UserJWT,
+		},
 	}
 }
 
@@ -52,14 +60,7 @@ func (h *Handler) Check(ctx context.Context, req *connect.Request[authv3.CheckRe
 	pat := strings.TrimPrefix(authHeader, "Bearer ")
 	pat = strings.TrimSpace(pat)
 
-	headerKeys := map[string]string{
-		"user_id":    h.cfg.Auth.HeaderKeys.UserID,
-		"user_email": h.cfg.Auth.HeaderKeys.UserEmail,
-		"user_groups": h.cfg.Auth.HeaderKeys.UserGroups,
-		"user_jwt":   h.cfg.Auth.HeaderKeys.UserJWT,
-	}
-
-	decision, err := h.appService.Check(ctx, pat, h.cfg.Auth.CacheTTL, headerKeys)
+	decision, err := h.appService.Check(ctx, pat, h.cfg.Auth.CacheTTL, h.headerKeys)
 	if err != nil {
 		span.RecordError(err)
 		logger.ErrorContext(ctx, "failed to check authorization", slog.String("error", err.Error()))
@@ -116,4 +117,3 @@ func (h *Handler) deniedResponse(statusCode int32, reason string) *connect.Respo
 		},
 	})
 }
-

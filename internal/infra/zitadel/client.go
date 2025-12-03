@@ -69,7 +69,7 @@ func (c *zitadelClient) Exchange(ctx context.Context, pat string) (*TokenRespons
 	form.Set("grant_type", "urn:ietf:params:oauth:grant-type:token-exchange")
 	form.Set("subject_token", pat)
 	form.Set("subject_token_type", "urn:ietf:params:oauth:token-type:access_token")
-	form.Set("requested_token_type", "urn:ietf:params:oauth:token-type:jwt")
+	form.Set("requested_token_type", "urn:ietf:params:oauth:token-type:access_token")
 	form.Set("scope", "openid")
 	form.Set("audience", c.clientID)
 
@@ -88,7 +88,7 @@ func (c *zitadelClient) Exchange(ctx context.Context, pat string) (*TokenRespons
 		return nil, fmt.Errorf("token exchange request failed: %w", err)
 	}
 
-	logger.InfoContext(ctx, "token exchange response", slog.String("token_type", tokenResp.TokenType))
+	logger.InfoContext(ctx, "token exchange response", slog.String("token_resp", fmt.Sprintf("%+v", tokenResp)))
 
 	if resp.StatusCode() >= http.StatusBadRequest {
 		return nil, fmt.Errorf(
