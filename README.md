@@ -4,15 +4,15 @@ Custom Authorization Service for Istio/Envoy ext_authz that exchanges Personal A
 
 ## Architecture
 
-This service implements the Envoy ext_authz protocol to:
+This service implements HTTP-based authorization for Istio/Envoy ext_authz:
 
-1. Receive `CheckRequest` from Istio/Envoy
+1. Receive HTTP requests from Istio/Envoy at `/oauth2/token-exchange/*` path
 2. Extract PAT from `Authorization: Bearer <PAT>` header
 3. Check Redis cache for cached JWT and user claims
 4. If cache miss, exchange PAT with ZITADEL `/oauth/v2/token` endpoint
 5. Get userinfo from ZITADEL `/oidc/v1/userinfo` endpoint
 6. Cache the result in Redis with TTL (default 5 minutes)
-7. Return `CheckResponse` with user headers injected
+7. Return HTTP 200 OK with user headers injected (or 401/500 on error)
 
 ## Configuration
 
@@ -89,7 +89,7 @@ spec:
     - {}
 ```
 
-And configure the extension provider:
+And configure the extension provider to use HTTP mode:
 
 ```yaml
 apiVersion: install.istio.io/v1alpha1
@@ -98,10 +98,25 @@ spec:
   meshConfig:
     extensionProviders:
     - name: "oauth2-authz"
-      envoyExtAuthzGrpc:
+      envoyExtAuthzHttp:
         service: "oauth2-token-exchange.authz.svc.cluster.local"
         port: "8080"
+        pathPrefix: "/oauth2/token-exchange"
 ```
+
+### How It Works
+
+Istio ext-authz HTTP mode forwards the original HTTP request (Method + Path) to the authorization service. This service:
+
+- Accepts any HTTP method and path under `/oauth2/token-exchange/*`
+- Extracts the `Authorization: Bearer <PAT>` header from the request
+- Returns HTTP 200 OK with user headers if authorization succeeds
+- Returns HTTP 401 Unauthorized if authorization fails
+- Returns HTTP 500 Internal Server Error on service errors
+
+Istio checks the HTTP status code:
+- **200 OK**: Request is allowed, headers are injected into the original request
+- **4xx/5xx**: Request is denied
 
 ## Project Structure
 
@@ -116,7 +131,7 @@ oauth2-token-exchange/
 │   ├── infra/
 │   │   ├── cache/      # Redis cache implementation
 │   │   └── zitadel/    # ZITADEL client
-│   └── transport/grpc/ # gRPC/Connect handlers
+│   └── transport/http/ # HTTP/Gin handlers
 ├── pb/                 # Protobuf definitions
 │   ├── envoy/          # Envoy ext_authz proto
 │   └── common/         # Common types

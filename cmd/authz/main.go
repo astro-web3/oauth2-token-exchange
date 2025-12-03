@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/astro-web3/oauth2-token-exchange/internal/config"
-	"github.com/astro-web3/oauth2-token-exchange/internal/transport/grpc"
+	httptransport "github.com/astro-web3/oauth2-token-exchange/internal/transport/http"
 	"github.com/astro-web3/oauth2-token-exchange/pkg/otel"
 )
 
@@ -20,14 +20,14 @@ const shutdownTimeoutSeconds = 10
 func main() {
 	cfg := config.MustLoad()
 
-	srv, err := grpc.NewServer(cfg)
+	srv, err := httptransport.NewServer(cfg)
 	if err != nil {
 		log.Fatalf("Failed to create server: %v", err)
 	}
 
 	serverErrChan := make(chan error, 1)
 	go func() {
-		log.Printf("Starting gRPC server on %s (mode: %s)", cfg.Server.Addr, cfg.Server.Mode)
+		log.Printf("Starting HTTP server on %s (mode: %s)", cfg.Server.Addr, cfg.Server.Mode)
 		if listenErr := srv.ListenAndServe(); listenErr != nil &&
 			!errors.Is(listenErr, http.ErrServerClosed) {
 			log.Printf("Server failed: %v", listenErr)

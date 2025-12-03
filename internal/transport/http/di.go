@@ -1,14 +1,10 @@
-package grpc
+package http
 
 import (
 	"context"
 	"fmt"
 	"net/http"
-	"time"
 
-	"log/slog"
-
-	"connectrpc.com/connect"
 	authzapp "github.com/astro-web3/oauth2-token-exchange/internal/app/authz"
 	"github.com/astro-web3/oauth2-token-exchange/internal/config"
 	authzdomain "github.com/astro-web3/oauth2-token-exchange/internal/domain/authz"
@@ -56,10 +52,11 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	appService := authzapp.NewService(domainService)
 
 	handler := NewHandler(appService, cfg)
+	router := NewRouter(handler, cfg)
 
 	httpServer := &http.Server{
 		Addr:         cfg.Server.Addr,
-		Handler:      NewRouter(handler),
+		Handler:      router,
 		ReadTimeout:  cfg.Server.ReadTimeout,
 		WriteTimeout: cfg.Server.WriteTimeout,
 		IdleTimeout:  cfg.Server.ReadTimeout * idleTimeoutMultiplier,
@@ -76,42 +73,4 @@ func (s *Server) ListenAndServe() error {
 
 func (s *Server) Shutdown(ctx context.Context) error {
 	return s.httpServer.Shutdown(ctx)
-}
-
-func recoveryInterceptor() connect.UnaryInterceptorFunc {
-	return func(next connect.UnaryFunc) connect.UnaryFunc {
-		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
-			defer func() {
-				if r := recover(); r != nil {
-					logger.ErrorContext(ctx, "panic recovered", slog.Any("panic", r))
-				}
-			}()
-			return next(ctx, req)
-		}
-	}
-}
-
-func loggingInterceptor() connect.UnaryInterceptorFunc {
-	return func(next connect.UnaryFunc) connect.UnaryFunc {
-		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
-			start := time.Now()
-			resp, err := next(ctx, req)
-			duration := time.Since(start)
-
-			if err != nil {
-				logger.ErrorContext(ctx, "request failed",
-					slog.String("method", req.Spec().Procedure),
-					slog.Duration("duration", duration),
-					slog.String("error", err.Error()),
-				)
-			} else {
-				logger.InfoContext(ctx, "request completed",
-					slog.String("method", req.Spec().Procedure),
-					slog.Duration("duration", duration),
-				)
-			}
-
-			return resp, err
-		}
-	}
 }

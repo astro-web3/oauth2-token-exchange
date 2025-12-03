@@ -4,12 +4,6 @@ package envoy.service.auth.v3;
 
 option go_package = "github.com/astro-web3/oauth2-token-exchange/pb/gen/go/envoy/service/auth/v3";
 
-// Authorization service for Envoy ext_authz compatibility
-// Note: Service name must match Envoy standard, cannot be suffixed with "Service"
-service Authorization {
-  rpc Check(CheckRequest) returns (CheckResponse);
-}
-
 message CheckRequest {
   message Attributes {
     message Request {
