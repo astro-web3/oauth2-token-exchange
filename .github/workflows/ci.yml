@@ -47,6 +47,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-golangci-${{ env.GOLANGCI_LINT_VERSION }}-
 
+      - name: Install buf
+        run: go install github.com/bufbuild/buf/cmd/buf@v1.42.0
+
+      - name: Generate protobuf code
+        working-directory: ./pb
+        run: buf generate
+
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v7
         with:
@@ -74,6 +81,13 @@ jobs:
           key: ${{ runner.os }}-go-build-${{ env.GO_VERSION }}-${{ hashFiles('go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-build-${{ env.GO_VERSION }}-
+
+      - name: Install buf
+        run: go install github.com/bufbuild/buf/cmd/buf@v1.42.0
+
+      - name: Generate protobuf code
+        working-directory: ./pb
+        run: buf generate
 
       - name: Run tests with race detector
         run: go test -v -race ./...
