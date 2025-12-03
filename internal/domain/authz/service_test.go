@@ -1,10 +1,13 @@
-package authz
+package authz_test
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"testing"
 	"time"
 
+	"github.com/astro-web3/oauth2-token-exchange/internal/domain/authz"
 	"github.com/astro-web3/oauth2-token-exchange/internal/infra/cache"
 	"github.com/astro-web3/oauth2-token-exchange/internal/infra/zitadel"
 )
@@ -13,11 +16,11 @@ type mockTokenCache struct {
 	tokens map[string]*cache.CachedToken
 }
 
-func (m *mockTokenCache) Get(ctx context.Context, patHash string) (*cache.CachedToken, error) {
+func (m *mockTokenCache) Get(_ context.Context, patHash string) (*cache.CachedToken, error) {
 	return m.tokens[patHash], nil
 }
 
-func (m *mockTokenCache) Set(ctx context.Context, patHash string, value *cache.CachedToken, ttl time.Duration) error {
+func (m *mockTokenCache) Set(_ context.Context, patHash string, value *cache.CachedToken, _ time.Duration) error {
 	m.tokens[patHash] = value
 	return nil
 }
@@ -37,7 +40,7 @@ func (m *mockTokenExchanger) Exchange(ctx context.Context, pat string) (*zitadel
 }
 
 func TestService_AuthorizePAT_EmptyPAT(t *testing.T) {
-	svc := NewService(&mockTokenCache{tokens: make(map[string]*cache.CachedToken)}, &mockTokenExchanger{})
+	svc := authz.NewService(&mockTokenCache{tokens: make(map[string]*cache.CachedToken)}, &mockTokenExchanger{})
 
 	decision, err := svc.AuthorizePAT(context.Background(), "", 5*time.Minute, map[string]string{
 		"user_id":     "x-user-id",
@@ -56,7 +59,7 @@ func TestService_AuthorizePAT_EmptyPAT(t *testing.T) {
 
 func TestService_AuthorizePAT_CacheHit(t *testing.T) {
 	mockCache := &mockTokenCache{tokens: make(map[string]*cache.CachedToken)}
-	patHash := hashPAT("test-token")
+	patHash := hashPATForTest("test-token")
 	mockCache.tokens[patHash] = &cache.CachedToken{
 		AccessToken: "cached-jwt",
 		UserID:      "user-123",
@@ -64,7 +67,7 @@ func TestService_AuthorizePAT_CacheHit(t *testing.T) {
 		Groups:      []string{"group1"},
 	}
 
-	svc := NewService(mockCache, &mockTokenExchanger{})
+	svc := authz.NewService(mockCache, &mockTokenExchanger{})
 
 	decision, err := svc.AuthorizePAT(context.Background(), "Bearer test-token", 5*time.Minute, map[string]string{
 		"user_id":     "x-user-id",
@@ -88,7 +91,7 @@ func TestService_AuthorizePAT_CacheMiss(t *testing.T) {
 	cache := &mockTokenCache{tokens: make(map[string]*cache.CachedToken)}
 	exchanger := &mockTokenExchanger{}
 
-	svc := NewService(cache, exchanger)
+	svc := authz.NewService(cache, exchanger)
 
 	decision, err := svc.AuthorizePAT(context.Background(), "Bearer valid-token", 5*time.Minute, map[string]string{
 		"user_id":     "x-user-id",
@@ -106,4 +109,9 @@ func TestService_AuthorizePAT_CacheMiss(t *testing.T) {
 	if decision.Headers["x-user-id"] != "user-123" {
 		t.Errorf("expected user-id header, got %v", decision.Headers)
 	}
+}
+
+func hashPATForTest(pat string) string {
+	hash := sha256.Sum256([]byte(pat))
+	return hex.EncodeToString(hash[:])
 }

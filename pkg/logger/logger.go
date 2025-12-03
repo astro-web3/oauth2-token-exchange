@@ -11,10 +11,13 @@ import (
 )
 
 var (
+	//nolint:gochecknoglobals // Global logger is intentional for application-wide logging
 	defaultLogger *slog.Logger
-	initOnce      sync.Once
+	//nolint:gochecknoglobals // Global initOnce is intentional for thread-safe initialization
+	initOnce sync.Once
 )
 
+// otelHandler wraps a slog.Handler to add OpenTelemetry trace context to logs.
 type otelHandler struct {
 	slog.Handler
 }
@@ -34,6 +37,8 @@ func (h *otelHandler) Handle(ctx context.Context, r slog.Record) error {
 	return h.Handler.Handle(ctx, r)
 }
 
+// InitLogger initializes the global logger.
+// It is safe to call multiple times, but only the first call will take effect.
 func InitLogger(level, format string) {
 	initOnce.Do(func() {
 		var handler slog.Handler
@@ -58,30 +63,39 @@ func InitLogger(level, format string) {
 			})
 		}
 
+		// Wrap handler with OpenTelemetry trace context integration.
 		defaultLogger = slog.New(&otelHandler{Handler: handler})
 	})
 }
 
+// InfoContext logs at Info level with context.
 func InfoContext(ctx context.Context, msg string, attrs ...slog.Attr) {
 	if defaultLogger != nil {
+		//nolint:sloglint // Using global logger is intentional for this package API
 		defaultLogger.LogAttrs(ctx, slog.LevelInfo, msg, attrs...)
 	}
 }
 
+// DebugContext logs at Debug level with context.
 func DebugContext(ctx context.Context, msg string, attrs ...slog.Attr) {
 	if defaultLogger != nil {
+		//nolint:sloglint // Using global logger is intentional for this package API
 		defaultLogger.LogAttrs(ctx, slog.LevelDebug, msg, attrs...)
 	}
 }
 
+// WarnContext logs at Warn level with context.
 func WarnContext(ctx context.Context, msg string, attrs ...slog.Attr) {
 	if defaultLogger != nil {
+		//nolint:sloglint // Using global logger is intentional for this package API
 		defaultLogger.LogAttrs(ctx, slog.LevelWarn, msg, attrs...)
 	}
 }
 
+// ErrorContext logs at Error level with context.
 func ErrorContext(ctx context.Context, msg string, attrs ...slog.Attr) {
 	if defaultLogger != nil {
+		//nolint:sloglint // Using global logger is intentional for this package API
 		defaultLogger.LogAttrs(ctx, slog.LevelError, msg, attrs...)
 	}
 }

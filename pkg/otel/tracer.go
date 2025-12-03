@@ -17,10 +17,14 @@ import (
 )
 
 var (
-	tracerProvider   *sdktrace.TracerProvider
+	//nolint:gochecknoglobals // Global tracer provider is intentional for application-wide tracing
+	tracerProvider *sdktrace.TracerProvider
+	//nolint:gochecknoglobals // Global mutex is intentional for thread-safe access
 	tracerProviderMu sync.Mutex
 )
 
+// InitTracer initializes the global OpenTelemetry TracerProvider.
+// It should be called once during application startup.
 func InitTracer(cfg Config) (trace.Tracer, error) {
 	tracerProviderMu.Lock()
 	defer tracerProviderMu.Unlock()
@@ -110,6 +114,8 @@ func createHTTPExporter(ctx context.Context, cfg Config) (sdktrace.SpanExporter,
 	return exporter, nil
 }
 
+// Shutdown gracefully shuts down the TracerProvider.
+// It should be called during application shutdown.
 func Shutdown(ctx context.Context) error {
 	tracerProviderMu.Lock()
 	defer tracerProviderMu.Unlock()
@@ -126,6 +132,8 @@ func Shutdown(ctx context.Context) error {
 	return nil
 }
 
+// GetTracer returns a tracer instance for the given service name.
+// It uses the global TracerProvider set by InitTracer.
 func GetTracer(serviceName string) trace.Tracer {
 	return otel.Tracer(serviceName)
 }

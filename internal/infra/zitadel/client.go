@@ -7,10 +7,7 @@ import (
 	"net/url"
 	"strings"
 
-	"log/slog"
-
 	httpclient "github.com/astro-web3/oauth2-token-exchange/pkg/http"
-	"github.com/astro-web3/oauth2-token-exchange/pkg/logger"
 )
 
 type TokenExchangeRequest struct {
@@ -74,8 +71,6 @@ func (c *zitadelClient) Exchange(ctx context.Context, pat string) (*TokenRespons
 	if err != nil {
 		return nil, fmt.Errorf("token exchange request failed: %w", err)
 	}
-
-	logger.InfoContext(ctx, "token exchange response", slog.String("token_resp", fmt.Sprintf("%+v", tokenResp)))
 
 	if resp.StatusCode() >= http.StatusBadRequest {
 		return nil, fmt.Errorf(

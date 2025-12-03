@@ -18,6 +18,8 @@ import (
 	"github.com/astro-web3/oauth2-token-exchange/pkg/logger"
 )
 
+const jwtPartsCount = 3
+
 type Service interface {
 	AuthorizePAT(
 		ctx context.Context,
@@ -65,16 +67,15 @@ func (s *service) AuthorizePAT(
 	patHash := hashPAT(pat)
 
 	cached, err := s.tokenCache.Get(ctx, patHash)
-	if err != nil {
+	if err != nil && !errors.Is(err, cache.ErrCacheMiss) {
 		logger.WarnContext(ctx, "failed to get from cache, will exchange token", slog.String("error", err.Error()))
 	}
 
-	if cached != nil {
+	if err == nil && cached != nil {
 		return s.buildDecision(cached, headerKeys), nil
 	}
 
 	tokenResp, err := s.tokenExchanger.Exchange(ctx, pat)
-
 	if err != nil {
 		return &AuthzDecision{
 			Allow:  false,
@@ -82,11 +83,11 @@ func (s *service) AuthorizePAT(
 		}, nil
 	}
 
-	idTokenClaims, err := parseIDTokenClaims(tokenResp.IDToken)
-	if err != nil {
+	idTokenClaims, parseErr := parseIDTokenClaims(tokenResp.IDToken)
+	if parseErr != nil {
 		return &AuthzDecision{
 			Allow:  false,
-			Reason: fmt.Sprintf("parse id token failed: %v", err),
+			Reason: fmt.Sprintf("parse id token failed: %v", parseErr),
 		}, nil
 	}
 
@@ -97,8 +98,8 @@ func (s *service) AuthorizePAT(
 		Groups:      idTokenClaims.Groups,
 	}
 
-	if err := s.tokenCache.Set(ctx, patHash, cachedToken, cacheTTL); err != nil {
-		logger.WarnContext(ctx, "failed to set cache", slog.String("error", err.Error()))
+	if setErr := s.tokenCache.Set(ctx, patHash, cachedToken, cacheTTL); setErr != nil {
+		logger.WarnContext(ctx, "failed to set cache", slog.String("error", setErr.Error()))
 	}
 
 	tokenClaims := &TokenClaims{
@@ -170,7 +171,7 @@ func parseIDTokenClaims(idToken string) (*idTokenClaims, error) {
 	}
 
 	parts := strings.Split(idToken, ".")
-	if len(parts) != 3 {
+	if len(parts) != jwtPartsCount {
 		return nil, errors.New("invalid jwt format")
 	}
 
@@ -182,7 +183,7 @@ func parseIDTokenClaims(idToken string) (*idTokenClaims, error) {
 	}
 
 	var claims idTokenClaims
-	if err := json.Unmarshal(payloadBytes, &claims); err != nil {
+	if err = json.Unmarshal(payloadBytes, &claims); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal jwt payload: %w", err)
 	}
 

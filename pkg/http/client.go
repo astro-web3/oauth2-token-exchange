@@ -20,8 +20,10 @@ const (
 )
 
 var (
+	//nolint:gochecknoglobals // Global HTTP client is intentional for application-wide requests
 	client *resty.Client
-	once   sync.Once
+	//nolint:gochecknoglobals // Global once is intentional for thread-safe initialization
+	once sync.Once
 )
 
 func getClient() *resty.Client {
@@ -34,6 +36,7 @@ func getClient() *resty.Client {
 	return client
 }
 
+// Client returns the shared HTTP client instance.
 func Client() *resty.Client {
 	return getClient()
 }

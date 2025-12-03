@@ -10,6 +10,8 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+var ErrCacheMiss = errors.New("cache miss")
+
 type CachedToken struct {
 	AccessToken string   `json:"access_token"`
 	UserID      string   `json:"user_id"`
@@ -37,7 +39,7 @@ func NewRedisClient(url string, poolSize int) (*redis.Client, error) {
 	client := redis.NewClient(opt)
 
 	ctx := context.Background()
-	if err := client.Ping(ctx).Err(); err != nil {
+	if err = client.Ping(ctx).Err(); err != nil {
 		return nil, fmt.Errorf("failed to ping redis: %w", err)
 	}
 
@@ -52,14 +54,14 @@ func (r *redisCache) Get(ctx context.Context, patHash string) (*CachedToken, err
 	key := fmt.Sprintf("authz:pat:%s", patHash)
 	val, err := r.client.Get(ctx, key).Result()
 	if errors.Is(err, redis.Nil) {
-		return nil, nil
+		return nil, ErrCacheMiss
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get from redis: %w", err)
 	}
 
 	var token CachedToken
-	if err := json.Unmarshal([]byte(val), &token); err != nil {
+	if err = json.Unmarshal([]byte(val), &token); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal cached token: %w", err)
 	}
 
@@ -73,7 +75,7 @@ func (r *redisCache) Set(ctx context.Context, patHash string, value *CachedToken
 		return fmt.Errorf("failed to marshal cached token: %w", err)
 	}
 
-	if err := r.client.Set(ctx, key, data, ttl).Err(); err != nil {
+	if err = r.client.Set(ctx, key, data, ttl).Err(); err != nil {
 		return fmt.Errorf("failed to set redis cache: %w", err)
 	}
 

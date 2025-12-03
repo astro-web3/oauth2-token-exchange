@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"errors"
+	"net/http"
 	"strings"
 
 	"log/slog"
@@ -22,6 +23,11 @@ type Handler struct {
 	cfg        *config.Config
 	headerKeys map[string]string
 }
+
+const (
+	statusUnauthorized  int32 = http.StatusUnauthorized
+	statusInternalError int32 = http.StatusInternalServerError
+)
 
 func NewHandler(appService authz.Service, cfg *config.Config) authv3connect.AuthorizationHandler {
 	return &Handler{
@@ -57,7 +63,7 @@ func (h *Handler) Check(
 	if authHeader == "" {
 		span.SetAttributes(attribute.Bool("authz.missing_header", true))
 		logger.WarnContext(ctx, "missing authorization header")
-		return h.deniedResponse(401, "missing authorization header"), nil
+		return h.deniedResponse(statusUnauthorized, "missing authorization header"), nil
 	}
 
 	pat := strings.TrimPrefix(authHeader, "Bearer ")
@@ -67,7 +73,7 @@ func (h *Handler) Check(
 	if err != nil {
 		span.RecordError(err)
 		logger.ErrorContext(ctx, "failed to check authorization", slog.String("error", err.Error()))
-		return h.deniedResponse(500, "internal server error"), nil
+		return h.deniedResponse(statusInternalError, "internal server error"), nil
 	}
 
 	if !decision.Allow {
@@ -76,7 +82,7 @@ func (h *Handler) Check(
 			attribute.String("authz.reason", decision.Reason),
 		)
 		logger.WarnContext(ctx, "authorization denied", slog.String("reason", decision.Reason))
-		return h.deniedResponse(401, decision.Reason), nil
+		return h.deniedResponse(statusUnauthorized, decision.Reason), nil
 	}
 
 	span.SetAttributes(attribute.Bool("authz.allowed", true))

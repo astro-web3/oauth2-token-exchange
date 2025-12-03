@@ -446,6 +446,7 @@ linters:
     # Excluding configuration per-path, per-linter, per-text and per-source.
     paths:
       - internal/transport/http/di.go
+      - e2e/
     rules:
       - source: 'TODO'
         linters: [ godot ]

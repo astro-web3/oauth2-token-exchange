@@ -70,9 +70,11 @@ func (s *service) Check(
 	return decision, nil
 }
 
+const patPrefixLength = 8
+
 func getPATPrefix(pat string) string {
-	if len(pat) > 8 {
-		return pat[:8] + "..."
+	if len(pat) > patPrefixLength {
+		return pat[:patPrefixLength] + "..."
 	}
 	return "***"
 }

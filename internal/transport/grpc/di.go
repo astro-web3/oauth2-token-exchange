@@ -14,7 +14,6 @@ import (
 	authzdomain "github.com/astro-web3/oauth2-token-exchange/internal/domain/authz"
 	"github.com/astro-web3/oauth2-token-exchange/internal/infra/cache"
 	"github.com/astro-web3/oauth2-token-exchange/internal/infra/zitadel"
-	authv3connect "github.com/astro-web3/oauth2-token-exchange/pb/gen/go/envoy/service/auth/v3/authv3connect"
 	"github.com/astro-web3/oauth2-token-exchange/pkg/logger"
 	"github.com/astro-web3/oauth2-token-exchange/pkg/otel"
 	"github.com/astro-web3/oauth2-token-exchange/pkg/tracer"
@@ -23,6 +22,8 @@ import (
 type Server struct {
 	httpServer *http.Server
 }
+
+const idleTimeoutMultiplier = 2
 
 func NewServer(cfg *config.Config) (*Server, error) {
 	logger.InitLogger(cfg.Observability.LogLevel, "json")
@@ -56,19 +57,12 @@ func NewServer(cfg *config.Config) (*Server, error) {
 
 	handler := NewHandler(appService, cfg)
 
-	mux := http.NewServeMux()
-	path, httpHandler := authv3connect.NewAuthorizationHandler(handler, connect.WithInterceptors(
-		recoveryInterceptor(),
-		loggingInterceptor(),
-	))
-	mux.Handle(path, httpHandler)
-
 	httpServer := &http.Server{
 		Addr:         cfg.Server.Addr,
-		Handler:      mux,
+		Handler:      NewRouter(handler),
 		ReadTimeout:  cfg.Server.ReadTimeout,
 		WriteTimeout: cfg.Server.WriteTimeout,
-		IdleTimeout:  cfg.Server.ReadTimeout * 2,
+		IdleTimeout:  cfg.Server.ReadTimeout * idleTimeoutMultiplier,
 	}
 
 	return &Server{
