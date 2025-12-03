@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	tracerProvider *sdktrace.TracerProvider
+	tracerProvider   *sdktrace.TracerProvider
 	tracerProviderMu sync.Mutex
 )
 
@@ -129,4 +129,3 @@ func Shutdown(ctx context.Context) error {
 func GetTracer(serviceName string) trace.Tracer {
 	return otel.Tracer(serviceName)
 }
-

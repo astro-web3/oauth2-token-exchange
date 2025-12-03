@@ -4,15 +4,21 @@ import (
 	"context"
 	"time"
 
+	"log/slog"
+
 	"github.com/astro-web3/oauth2-token-exchange/internal/domain/authz"
 	"github.com/astro-web3/oauth2-token-exchange/pkg/logger"
 	"github.com/astro-web3/oauth2-token-exchange/pkg/tracer"
 	"go.opentelemetry.io/otel/attribute"
-	"log/slog"
 )
 
 type Service interface {
-	Check(ctx context.Context, pat string, cacheTTL time.Duration, headerKeys map[string]string) (*authz.AuthzDecision, error)
+	Check(
+		ctx context.Context,
+		pat string,
+		cacheTTL time.Duration,
+		headerKeys map[string]string,
+	) (*authz.AuthzDecision, error)
 }
 
 type service struct {
@@ -25,7 +31,12 @@ func NewService(domainService authz.Service) Service {
 	}
 }
 
-func (s *service) Check(ctx context.Context, pat string, cacheTTL time.Duration, headerKeys map[string]string) (*authz.AuthzDecision, error) {
+func (s *service) Check(
+	ctx context.Context,
+	pat string,
+	cacheTTL time.Duration,
+	headerKeys map[string]string,
+) (*authz.AuthzDecision, error) {
 	ctx, span := tracer.Start(ctx, "app.authz.Check")
 	defer span.End()
 
@@ -43,7 +54,11 @@ func (s *service) Check(ctx context.Context, pat string, cacheTTL time.Duration,
 
 	if decision.Allow {
 		span.SetAttributes(attribute.Bool("authz.allowed", true))
-		logger.InfoContext(ctx, "authorization allowed", slog.String("user_id", decision.Headers[headerKeys["user_id"]]))
+		logger.InfoContext(
+			ctx,
+			"authorization allowed",
+			slog.String("user_id", decision.Headers[headerKeys["user_id"]]),
+		)
 	} else {
 		span.SetAttributes(
 			attribute.Bool("authz.allowed", false),
@@ -61,4 +76,3 @@ func getPATPrefix(pat string) string {
 	}
 	return "***"
 }
-

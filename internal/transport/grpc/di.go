@@ -6,17 +6,18 @@ import (
 	"net/http"
 	"time"
 
+	"log/slog"
+
+	"connectrpc.com/connect"
 	authzapp "github.com/astro-web3/oauth2-token-exchange/internal/app/authz"
 	"github.com/astro-web3/oauth2-token-exchange/internal/config"
 	authzdomain "github.com/astro-web3/oauth2-token-exchange/internal/domain/authz"
 	"github.com/astro-web3/oauth2-token-exchange/internal/infra/cache"
 	"github.com/astro-web3/oauth2-token-exchange/internal/infra/zitadel"
+	authv3connect "github.com/astro-web3/oauth2-token-exchange/pb/gen/go/envoy/service/auth/v3/authv3connect"
 	"github.com/astro-web3/oauth2-token-exchange/pkg/logger"
 	"github.com/astro-web3/oauth2-token-exchange/pkg/otel"
 	"github.com/astro-web3/oauth2-token-exchange/pkg/tracer"
-	authv3connect "github.com/astro-web3/oauth2-token-exchange/pb/gen/go/envoy/service/auth/v3/authv3connect"
-	"connectrpc.com/connect"
-	"log/slog"
 )
 
 type Server struct {
@@ -120,4 +121,3 @@ func loggingInterceptor() connect.UnaryInterceptorFunc {
 		}
 	}
 }
-

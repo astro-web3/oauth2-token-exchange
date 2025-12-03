@@ -40,4 +40,3 @@ func Start(ctx context.Context, spanName string, opts ...trace.SpanStartOption) 
 	newCtx, span := defaultTracer.Start(ctx, spanName, opts...)
 	return newCtx, span
 }
-

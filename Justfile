@@ -17,3 +17,11 @@ docker-build:
 docker-run:
     @echo "Running Docker image..."
     docker run --rm -p 8123:8123 -v $(pwd)/config:/app/config -e APP_ENV=local oauth2-token-exchange:latest
+
+lint:
+    @echo "Running golangci-lint..."
+    golangci-lint run
+
+fix:
+    @echo "Auto-fixing linting issues..."
+    golangci-lint run --fix

@@ -19,7 +19,12 @@ import (
 )
 
 type Service interface {
-	AuthorizePAT(ctx context.Context, pat string, cacheTTL time.Duration, headerKeys map[string]string) (*AuthzDecision, error)
+	AuthorizePAT(
+		ctx context.Context,
+		pat string,
+		cacheTTL time.Duration,
+		headerKeys map[string]string,
+	) (*AuthzDecision, error)
 }
 
 type service struct {
@@ -34,7 +39,12 @@ func NewService(tokenCache cache.TokenCache, tokenExchanger zitadel.TokenExchang
 	}
 }
 
-func (s *service) AuthorizePAT(ctx context.Context, pat string, cacheTTL time.Duration, headerKeys map[string]string) (*AuthzDecision, error) {
+func (s *service) AuthorizePAT(
+	ctx context.Context,
+	pat string,
+	cacheTTL time.Duration,
+	headerKeys map[string]string,
+) (*AuthzDecision, error) {
 	if pat == "" {
 		return &AuthzDecision{
 			Allow:  false,
@@ -161,7 +171,7 @@ func parseIDTokenClaims(idToken string) (*idTokenClaims, error) {
 
 	parts := strings.Split(idToken, ".")
 	if len(parts) != 3 {
-		return nil, fmt.Errorf("invalid jwt format")
+		return nil, errors.New("invalid jwt format")
 	}
 
 	payloadSegment := parts[1]

@@ -130,4 +130,3 @@ func recordSpan(span trace.Span, resp *resty.Response, err error) {
 	}
 	span.SetStatus(codes.Ok, "")
 }
-

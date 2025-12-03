@@ -2,7 +2,7 @@ package grpc
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"strings"
 
 	"log/slog"
@@ -36,13 +36,16 @@ func NewHandler(appService authz.Service, cfg *config.Config) authv3connect.Auth
 	}
 }
 
-func (h *Handler) Check(ctx context.Context, req *connect.Request[authv3.CheckRequest]) (*connect.Response[authv3.CheckResponse], error) {
+func (h *Handler) Check(
+	ctx context.Context,
+	req *connect.Request[authv3.CheckRequest],
+) (*connect.Response[authv3.CheckResponse], error) {
 	ctx, span := tracer.Start(ctx, "transport.grpc.Check")
 	defer span.End()
 
 	httpReq := req.Msg.GetAttributes().GetRequest().GetHttp()
 	if httpReq == nil {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("missing HTTP request"))
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("missing HTTP request"))
 	}
 
 	headers := httpReq.GetHeaders()

@@ -1,10 +1,10 @@
 package authz
 
 type TokenClaims struct {
-	UserID  string
-	Email   string
-	Groups  []string
-	JWT     string
+	UserID string
+	Email  string
+	Groups []string
+	JWT    string
 }
 
 type AuthzDecision struct {
@@ -12,4 +12,3 @@ type AuthzDecision struct {
 	Headers map[string]string
 	Reason  string
 }
-

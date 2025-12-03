@@ -98,4 +98,3 @@ func parseLevel(level string) slog.Level {
 		return slog.LevelInfo
 	}
 }
-

@@ -34,4 +34,3 @@ func (c Config) toResourceAttributes() []attribute.KeyValue {
 
 	return attrs
 }
-

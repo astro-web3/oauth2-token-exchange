@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -50,7 +51,7 @@ func NewTokenCache(client *redis.Client) TokenCache {
 func (r *redisCache) Get(ctx context.Context, patHash string) (*CachedToken, error) {
 	key := fmt.Sprintf("authz:pat:%s", patHash)
 	val, err := r.client.Get(ctx, key).Result()
-	if err == redis.Nil {
+	if errors.Is(err, redis.Nil) {
 		return nil, nil
 	}
 	if err != nil {
@@ -78,4 +79,3 @@ func (r *redisCache) Set(ctx context.Context, patHash string, value *CachedToken
 
 	return nil
 }
-

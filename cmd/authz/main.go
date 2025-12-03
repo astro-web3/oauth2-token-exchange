@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net/http"
 	"os"
@@ -28,7 +29,7 @@ func main() {
 	go func() {
 		log.Printf("Starting gRPC server on %s (mode: %s)", cfg.Server.Addr, cfg.Server.Mode)
 		if listenErr := srv.ListenAndServe(); listenErr != nil &&
-			listenErr != http.ErrServerClosed {
+			!errors.Is(listenErr, http.ErrServerClosed) {
 			log.Printf("Server failed: %v", listenErr)
 			serverErrChan <- listenErr
 		}
@@ -62,4 +63,3 @@ func main() {
 		log.Println("Tracer provider stopped gracefully")
 	}
 }
-
