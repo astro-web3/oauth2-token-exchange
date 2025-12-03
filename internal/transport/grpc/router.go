@@ -14,12 +14,18 @@ func NewRouter(handler authv3connect.AuthorizationHandler) http.Handler {
 		recoveryInterceptor(),
 		loggingInterceptor(),
 	))
+
 	mux.Handle(path, httpHandler)
 
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
+
+	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.URL.Path = authv3connect.AuthorizationCheckProcedure
+		httpHandler.ServeHTTP(w, r)
+	}))
 
 	return mux
 }
