@@ -2,6 +2,7 @@ package pat
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -48,7 +49,7 @@ func (s *service) CreatePAT(
 	}
 
 	if machineUser == nil || machineUser.ID == "" {
-		return nil, "", fmt.Errorf("machine user is nil or has empty ID after get/create")
+		return nil, "", errors.New("machine user is nil or has empty ID after get/create")
 	}
 
 	zitadelPAT, token, err := s.zitadelClient.AddPersonalAccessToken(ctx, s.adminPAT, machineUser.ID, expirationDate)

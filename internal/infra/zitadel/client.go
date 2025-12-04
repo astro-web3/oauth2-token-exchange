@@ -2,6 +2,7 @@ package zitadel
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -12,6 +13,8 @@ import (
 	httpclient "github.com/astro-web3/oauth2-token-exchange/pkg/http"
 	"github.com/astro-web3/oauth2-token-exchange/pkg/logger"
 )
+
+const defaultPersonalAccessTokenPageLimit = 100
 
 type UserInfo struct {
 	Sub      string `json:"sub"`
@@ -49,7 +52,11 @@ type MachineUserManager interface {
 }
 
 type PATManager interface {
-	AddPersonalAccessToken(ctx context.Context, adminPAT, userID string, expirationDate time.Time) (*PersonalAccessToken, string, error)
+	AddPersonalAccessToken(
+		ctx context.Context,
+		adminPAT, userID string,
+		expirationDate time.Time,
+	) (*PersonalAccessToken, string, error)
 	ListPersonalAccessTokens(ctx context.Context, adminPAT, userID string) ([]*PersonalAccessToken, error)
 	RemovePersonalAccessToken(ctx context.Context, adminPAT, userID, patID string) error
 }
@@ -123,7 +130,10 @@ func (c *zitadelClient) Exchange(ctx context.Context, pat string) (*TokenRespons
 	return &tokenResp, nil
 }
 
-func (c *zitadelClient) ExchangeWithActor(ctx context.Context, subjectToken, subjectTokenType, actorToken string) (*TokenResponse, error) {
+func (c *zitadelClient) ExchangeWithActor(
+	ctx context.Context,
+	subjectToken, subjectTokenType, actorToken string,
+) (*TokenResponse, error) {
 	form := url.Values{}
 	form.Set("grant_type", "urn:ietf:params:oauth:grant-type:token-exchange")
 	form.Set("subject_token", subjectToken)
@@ -246,7 +256,7 @@ func (c *zitadelClient) GetMachineUserByUsername(ctx context.Context, adminPAT, 
 				slog.String("endpoint", searchEndpoint),
 				slog.String("username", username),
 			)
-			return nil, nil
+			return nil, nil //nolint:nilnil // nil machine user with nil error indicates not found.
 		}
 		bodyStr := string(resp.Body())
 		logger.ErrorContext(ctx, "Get machine user by username failed",
@@ -267,7 +277,7 @@ func (c *zitadelClient) GetMachineUserByUsername(ctx context.Context, adminPAT, 
 			slog.String("endpoint", searchEndpoint),
 			slog.String("username", username),
 		)
-		return nil, nil
+		return nil, nil //nolint:nilnil // nil machine user with nil error indicates not found.
 	}
 
 	user := result.Result[0]
@@ -279,7 +289,11 @@ func (c *zitadelClient) GetMachineUserByUsername(ctx context.Context, adminPAT, 
 			slog.String("response_body", bodyStr),
 			slog.Any("parsed_result", result),
 		)
-		return nil, fmt.Errorf("get machine user by username returned empty user ID, response body: %s, parsed result: %+v", bodyStr, result)
+		return nil, fmt.Errorf(
+			"get machine user by username returned empty user ID, response body: %s, parsed result: %+v",
+			bodyStr,
+			result,
+		)
 	}
 
 	if user.Machine == nil {
@@ -300,7 +314,10 @@ func (c *zitadelClient) GetMachineUserByUsername(ctx context.Context, adminPAT, 
 	}, nil
 }
 
-func (c *zitadelClient) CreateMachineUser(ctx context.Context, adminPAT, username, name, description string) (*MachineUser, error) {
+func (c *zitadelClient) CreateMachineUser(
+	ctx context.Context,
+	adminPAT, username, name, description string,
+) (*MachineUser, error) {
 	createEndpoint := c.issuer + "/v2/users/new"
 
 	usernamePtr := &username
@@ -325,6 +342,7 @@ func (c *zitadelClient) CreateMachineUser(ctx context.Context, adminPAT, usernam
 		return nil, fmt.Errorf("create machine user failed: %w", err)
 	}
 
+	//nolint:nestif // Error handling branches are kept together for clarity.
 	if resp.StatusCode() >= http.StatusBadRequest {
 		if resp.StatusCode() == http.StatusConflict {
 			logger.WarnContext(ctx, "Machine user already exists, retrieving existing user",
@@ -343,7 +361,7 @@ func (c *zitadelClient) CreateMachineUser(ctx context.Context, adminPAT, usernam
 				logger.ErrorContext(ctx, "Existing machine user not found",
 					slog.String("username", username),
 				)
-				return nil, fmt.Errorf("user already exists but could not be retrieved")
+				return nil, errors.New("user already exists but could not be retrieved")
 			}
 			return machineUser, nil
 		}
@@ -369,7 +387,11 @@ func (c *zitadelClient) CreateMachineUser(ctx context.Context, adminPAT, usernam
 			slog.String("response_body", bodyStr),
 			slog.Any("parsed_result", result),
 		)
-		return nil, fmt.Errorf("create machine user returned empty user ID, response body: %s, parsed result: %+v", bodyStr, result)
+		return nil, fmt.Errorf(
+			"create machine user returned empty user ID, response body: %s, parsed result: %+v",
+			bodyStr,
+			result,
+		)
 	}
 
 	return &MachineUser{
@@ -380,7 +402,11 @@ func (c *zitadelClient) CreateMachineUser(ctx context.Context, adminPAT, usernam
 	}, nil
 }
 
-func (c *zitadelClient) AddPersonalAccessToken(ctx context.Context, adminPAT, userID string, expirationDate time.Time) (*PersonalAccessToken, string, error) {
+func (c *zitadelClient) AddPersonalAccessToken(
+	ctx context.Context,
+	adminPAT, userID string,
+	expirationDate time.Time,
+) (*PersonalAccessToken, string, error) {
 	createEndpoint := fmt.Sprintf("%s/v2/users/%s/pats", c.issuer, userID)
 
 	reqBody := &AddPersonalAccessTokenRequest{
@@ -436,12 +462,15 @@ func (c *zitadelClient) AddPersonalAccessToken(ctx context.Context, adminPAT, us
 	}, result.Token, nil
 }
 
-func (c *zitadelClient) ListPersonalAccessTokens(ctx context.Context, adminPAT, userID string) ([]*PersonalAccessToken, error) {
+func (c *zitadelClient) ListPersonalAccessTokens(
+	ctx context.Context,
+	adminPAT, userID string,
+) ([]*PersonalAccessToken, error) {
 	listEndpoint := c.issuer + "/v2/users/pats/search"
 
 	reqBody := &ListPersonalAccessTokensRequest{
 		Pagination: &PaginationRequest{
-			Limit: 100,
+			Limit: defaultPersonalAccessTokenPageLimit,
 		},
 		Filters: []*PersonalAccessTokensSearchFilter{
 			{

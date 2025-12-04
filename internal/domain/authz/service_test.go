@@ -39,8 +39,52 @@ func (m *mockTokenExchanger) Exchange(ctx context.Context, pat string) (*zitadel
 	}, nil
 }
 
-func (m *mockTokenExchanger) ExchangeWithActor(ctx context.Context, subjectToken, subjectTokenType, actorToken string) (*zitadel.TokenResponse, error) {
+func (m *mockTokenExchanger) ExchangeWithActor(
+	ctx context.Context,
+	subjectToken, _ string, _ string,
+) (*zitadel.TokenResponse, error) {
 	return m.Exchange(ctx, subjectToken)
+}
+
+type mockUserInfoGetter struct {
+	userInfoFunc func(ctx context.Context, pat string) (*zitadel.UserInfo, error)
+}
+
+func (m *mockUserInfoGetter) GetUserInfo(ctx context.Context, pat string) (*zitadel.UserInfo, error) {
+	if m.userInfoFunc != nil {
+		return m.userInfoFunc(ctx, pat)
+	}
+	return &zitadel.UserInfo{
+		Sub:      "user-123",
+		Username: "user-123",
+		Email:    "test@example.com",
+		Name:     "Test User",
+	}, nil
+}
+
+type mockZitadelClient struct {
+	*mockTokenExchanger
+	*mockUserInfoGetter
+}
+
+func (m *mockZitadelClient) GetMachineUserByUsername(ctx context.Context, adminPAT, username string) (*zitadel.MachineUser, error) {
+	return nil, nil
+}
+
+func (m *mockZitadelClient) CreateMachineUser(ctx context.Context, adminPAT, username, name, description string) (*zitadel.MachineUser, error) {
+	return nil, nil
+}
+
+func (m *mockZitadelClient) AddPersonalAccessToken(ctx context.Context, adminPAT, userID string, expirationDate time.Time) (*zitadel.PersonalAccessToken, string, error) {
+	return nil, "", nil
+}
+
+func (m *mockZitadelClient) ListPersonalAccessTokens(ctx context.Context, adminPAT, userID string) ([]*zitadel.PersonalAccessToken, error) {
+	return nil, nil
+}
+
+func (m *mockZitadelClient) RemovePersonalAccessToken(ctx context.Context, adminPAT, userID, patID string) error {
+	return nil
 }
 
 func TestService_AuthorizePAT_EmptyPAT(t *testing.T) {
@@ -93,9 +137,12 @@ func TestService_AuthorizePAT_CacheHit(t *testing.T) {
 
 func TestService_AuthorizePAT_CacheMiss(t *testing.T) {
 	cache := &mockTokenCache{tokens: make(map[string]*cache.CachedToken)}
-	exchanger := &mockTokenExchanger{}
+	client := &mockZitadelClient{
+		mockTokenExchanger: &mockTokenExchanger{},
+		mockUserInfoGetter: &mockUserInfoGetter{},
+	}
 
-	svc := authz.NewService(cache, exchanger)
+	svc := authz.NewServiceWithMachineUserSupport(cache, client, client, "admin-pat")
 
 	decision, err := svc.AuthorizePAT(context.Background(), "Bearer valid-token", 5*time.Minute, map[string]string{
 		"user_id":     "x-user-id",

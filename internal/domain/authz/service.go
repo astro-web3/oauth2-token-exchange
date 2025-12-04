@@ -57,6 +57,7 @@ func NewServiceWithMachineUserSupport(
 	}
 }
 
+//nolint:funlen // AuthorizePAT orchestrates the full authorization flow for clarity.
 func (s *service) AuthorizePAT(
 	ctx context.Context,
 	pat string,

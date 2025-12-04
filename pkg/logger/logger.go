@@ -12,6 +12,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+const callerSkipFrames = 2
+
 var (
 	//nolint:gochecknoglobals // Global logger is intentional for application-wide logging
 	defaultLogger *slog.Logger
@@ -124,7 +126,7 @@ func ErrorContext(ctx context.Context, msg string, attrs ...slog.Attr) {
 
 // logWithCaller creates a log record with the correct caller information.
 func logWithCaller(ctx context.Context, level slog.Level, msg string, attrs ...slog.Attr) {
-	pc, _, _, ok := runtime.Caller(2)
+	pc, _, _, ok := runtime.Caller(callerSkipFrames)
 	if !ok {
 		// Fallback to default behavior if caller info is not available
 		//nolint:sloglint // Using global logger is intentional for this package API

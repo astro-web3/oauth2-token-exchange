@@ -16,4 +16,3 @@ type Service interface {
 
 	DeletePAT(ctx context.Context, userID, patID string) error
 }
-

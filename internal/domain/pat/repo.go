@@ -13,4 +13,3 @@ type QueryRepository interface {
 	ListByUserID(ctx context.Context, userID string) ([]*PAT, error)
 	GetByID(ctx context.Context, patID string) (*PAT, error)
 }
-
