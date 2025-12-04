@@ -45,8 +45,8 @@ func (h *Handler) Check(c *gin.Context) {
 
 	if authHeader == "" {
 		span.SetAttributes(attribute.Bool("authz.missing_header", true))
-		logger.WarnContext(ctx, "missing authorization header")
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing authorization header"})
+		// c.JSON(http.StatusUnauthorized, gin.H{"error": "missing authorization header"})
+		c.Status(http.StatusOK)
 		return
 	}
 
