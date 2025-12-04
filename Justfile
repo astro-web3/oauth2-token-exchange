@@ -6,6 +6,10 @@ gen:
     @echo "Generating code..."
     cd pb && buf generate
 
+push:
+    @echo "Pushing code..."
+    cd pb && buf push
+
 test:
     @echo "Running tests..."
     go test ./...
