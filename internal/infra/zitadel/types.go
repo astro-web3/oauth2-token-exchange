@@ -199,8 +199,8 @@ type ListPersonalAccessTokensResponse struct {
 
 // PaginationResponse represents pagination response
 type PaginationResponse struct {
-	TotalResult  uint64 `json:"totalResult,omitempty"`
-	AppliedLimit uint64 `json:"appliedLimit,omitempty"`
+	TotalResult  string `json:"totalResult,omitempty"`
+	AppliedLimit string `json:"appliedLimit,omitempty"`
 }
 
 // PersonalAccessTokenResponse represents a personal access token in API response

@@ -9,5 +9,6 @@ message HeaderKeys {
   string user_email = 2;
   string user_groups = 3;
   string user_jwt = 4;
+  string user_preferred_username = 5;
 }
 

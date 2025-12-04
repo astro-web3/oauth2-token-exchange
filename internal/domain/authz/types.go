@@ -1,10 +1,11 @@
 package authz
 
 type TokenClaims struct {
-	UserID string
-	Email  string
-	Groups []string
-	JWT    string
+	UserID            string
+	Email             string
+	Groups            []string
+	PreferredUsername string
+	JWT               string
 }
 
 // AuthzDecision represents the authorization decision returned by the domain service.

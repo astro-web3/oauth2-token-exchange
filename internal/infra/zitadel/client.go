@@ -130,8 +130,8 @@ func (c *zitadelClient) ExchangeWithActor(ctx context.Context, subjectToken, sub
 	form.Set("subject_token_type", subjectTokenType)
 	form.Set("actor_token", actorToken)
 	form.Set("actor_token_type", "urn:ietf:params:oauth:token-type:access_token")
-	form.Set("requested_token_type", "urn:ietf:params:oauth:token-type:jwt")
-	form.Set("scope", "openid")
+	form.Set("requested_token_type", "urn:ietf:params:oauth:token-type:access_token")
+	form.Set("scope", "openid email profile")
 	form.Set("audience", c.clientID)
 
 	tokenEndpoint := c.issuer + "/oauth/v2/token"
@@ -416,11 +416,6 @@ func (c *zitadelClient) AddPersonalAccessToken(ctx context.Context, adminPAT, us
 	}
 
 	bodyStr := string(resp.Body())
-	logger.DebugContext(ctx, "Add personal access token response",
-		slog.String("response_body", bodyStr),
-		slog.Any("parsed_result", result),
-	)
-
 	if result.TokenID == "" {
 		logger.WarnContext(ctx, "TokenID is empty in response",
 			slog.String("response_body", bodyStr),

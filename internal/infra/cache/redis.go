@@ -13,10 +13,11 @@ import (
 var ErrCacheMiss = errors.New("cache miss")
 
 type CachedToken struct {
-	AccessToken string   `json:"access_token"`
-	UserID      string   `json:"user_id"`
-	Email       string   `json:"email"`
-	Groups      []string `json:"groups"`
+	AccessToken       string   `json:"access_token"`
+	UserID            string   `json:"user_id"`
+	Email             string   `json:"email"`
+	Groups            []string `json:"groups"`
+	PreferredUsername string   `json:"preferred_username"`
 }
 
 type TokenCache interface {

@@ -35,10 +35,11 @@ type Config struct {
 		} `mapstructure:"zitadel"`
 		CacheTTL   time.Duration `mapstructure:"cache_ttl"`
 		HeaderKeys struct {
-			UserID     string `mapstructure:"user_id"`
-			UserEmail  string `mapstructure:"user_email"`
-			UserGroups string `mapstructure:"user_groups"`
-			UserJWT    string `mapstructure:"user_jwt"`
+			UserID                string `mapstructure:"user_id"`
+			UserEmail             string `mapstructure:"user_email"`
+			UserGroups            string `mapstructure:"user_groups"`
+			UserPreferredUsername string `mapstructure:"user_preferred_username"`
+			UserJWT               string `mapstructure:"user_jwt"`
 		} `mapstructure:"header_keys"`
 	} `mapstructure:"auth"`
 
@@ -48,6 +49,7 @@ type Config struct {
 		TracingEndpointURL string `mapstructure:"tracing_endpoint_url"`
 		LogLevel           string `mapstructure:"log_level"`
 		Format             string `mapstructure:"log_format"`
+		LogSource          bool   `mapstructure:"log_source"`
 	} `mapstructure:"observability"`
 }
 

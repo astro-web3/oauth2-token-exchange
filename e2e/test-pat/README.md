@@ -67,13 +67,14 @@ The E2E test suite covers:
 
 📝 Test: CreatePAT
    Created PAT ID: <pat-id>
-   User ID: <user-id>
+   Machine User ID: <machine-user-id>
+   Human User ID: <human-user-id>
    Expiration Date: <expiration>
 ✅ CreatePAT test passed (PAT ID: <pat-id>)
 
 📋 Test: ListPATs
    Found 1 PAT(s)
-   PAT 1: ID=<pat-id>, UserID=<user-id>, Expires=<expiration>
+   PAT 1: ID=<pat-id>, MachineUserID=<machine-user-id>, HumanUserID=<human-user-id>, Expires=<expiration>
 ✅ ListPATs test passed
 
 🔐 Test: AuthorizePAT

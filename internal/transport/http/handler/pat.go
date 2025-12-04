@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 	"errors"
-	"log/slog"
 	"time"
 
 	"connectrpc.com/connect"
@@ -11,15 +10,14 @@ import (
 	patdomain "github.com/astro-web3/oauth2-token-exchange/internal/domain/pat"
 	patv1 "github.com/astro-web3/oauth2-token-exchange/pb/gen/go/pat/v1"
 	patv1connect "github.com/astro-web3/oauth2-token-exchange/pb/gen/go/pat/v1/patv1connect"
-	"github.com/astro-web3/oauth2-token-exchange/pkg/logger"
 	"github.com/astro-web3/oauth2-token-exchange/pkg/tracer"
 	"go.opentelemetry.io/otel/attribute"
 )
 
 const (
-	headerUserID              = "X-Auth-Request-User"
-	headerEmail               = "X-Auth-Request-Email"
-	headerPreferredUsername   = "X-Auth-Request-Preferred-Username"
+	headerUserID            = "X-Auth-Request-User"
+	headerEmail             = "X-Auth-Request-Email"
+	headerPreferredUsername = "X-Auth-Request-Preferred-Username"
 )
 
 type PATHandler struct {
@@ -62,11 +60,6 @@ func (h *PATHandler) CreatePAT(
 		attribute.String("pat.email", email),
 	)
 
-	logger.InfoContext(ctx, "creating PAT",
-		slog.String("user_id", userID),
-		slog.String("email", email),
-	)
-
 	pat, token, err := h.commandService.CreatePAT(ctx, userID, email, preferredUsername, expirationDate)
 	if err != nil {
 		span.RecordError(err)
@@ -79,15 +72,18 @@ func (h *PATHandler) CreatePAT(
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	return connect.NewResponse(&patv1.CreatePATResponse{
+	connectResp := connect.NewResponse(&patv1.CreatePATResponse{
 		Pat: &patv1.PAT{
 			Id:             pat.ID,
-			UserId:         pat.UserID,
+			MachineUserId:  pat.MachineUserID,
+			HumanUserId:    pat.HumanUserID,
 			ExpirationDate: pat.ExpirationDate.Unix(),
 			CreatedAt:      pat.CreatedAt.Unix(),
 		},
 		Token: token,
-	}), nil
+	})
+
+	return connectResp, nil
 }
 
 func (h *PATHandler) ListPATs(
@@ -104,8 +100,6 @@ func (h *PATHandler) ListPATs(
 
 	span.SetAttributes(attribute.String("pat.user_id", userID))
 
-	logger.InfoContext(ctx, "listing PATs", slog.String("user_id", userID))
-
 	pats, err := h.queryService.ListPATs(ctx, userID)
 	if err != nil {
 		span.RecordError(err)
@@ -116,7 +110,8 @@ func (h *PATHandler) ListPATs(
 	for _, pat := range pats {
 		patProtos = append(patProtos, &patv1.PAT{
 			Id:             pat.ID,
-			UserId:         pat.UserID,
+			MachineUserId:  pat.MachineUserID,
+			HumanUserId:    pat.HumanUserID,
 			ExpirationDate: pat.ExpirationDate.Unix(),
 			CreatedAt:      pat.CreatedAt.Unix(),
 		})
@@ -146,11 +141,6 @@ func (h *PATHandler) DeletePAT(
 		attribute.String("pat.id", patID),
 	)
 
-	logger.InfoContext(ctx, "deleting PAT",
-		slog.String("user_id", userID),
-		slog.String("pat_id", patID),
-	)
-
 	err := h.commandService.DeletePAT(ctx, userID, patID)
 	if err != nil {
 		span.RecordError(err)
@@ -167,4 +157,3 @@ func (h *PATHandler) DeletePAT(
 		Success: true,
 	}), nil
 }
-

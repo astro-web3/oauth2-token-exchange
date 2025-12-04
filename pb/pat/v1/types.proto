@@ -6,8 +6,9 @@ option go_package = "github.com/astro-web3/oauth2-token-exchange/pb/gen/go/pat/v
 
 message PAT {
   string id = 1;
-  string user_id = 2;
-  int64 expiration_date = 3;
-  int64 created_at = 4;
+  string machine_user_id = 2;
+  string human_user_id = 3;
+  int64 expiration_date = 4;
+  int64 created_at = 5;
 }
 

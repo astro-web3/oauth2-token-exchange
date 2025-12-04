@@ -25,10 +25,11 @@ func NewHandler(appService authz.Service, cfg *config.Config) *Handler {
 		appService: appService,
 		cfg:        cfg,
 		headerKeys: map[string]string{
-			"user_id":     cfg.Auth.HeaderKeys.UserID,
-			"user_email":  cfg.Auth.HeaderKeys.UserEmail,
-			"user_groups": cfg.Auth.HeaderKeys.UserGroups,
-			"user_jwt":    cfg.Auth.HeaderKeys.UserJWT,
+			"user_id":                 cfg.Auth.HeaderKeys.UserID,
+			"user_email":              cfg.Auth.HeaderKeys.UserEmail,
+			"user_groups":             cfg.Auth.HeaderKeys.UserGroups,
+			"user_preferred_username": cfg.Auth.HeaderKeys.UserPreferredUsername,
+			"user_jwt":                cfg.Auth.HeaderKeys.UserJWT,
 		},
 	}
 }
@@ -53,6 +54,7 @@ func (h *Handler) Check(c *gin.Context) {
 	pat = strings.TrimSpace(pat)
 
 	decision, err := h.appService.Check(ctx, pat, h.cfg.Auth.CacheTTL, h.headerKeys)
+
 	if err != nil {
 		span.RecordError(err)
 		logger.ErrorContext(ctx, "failed to check authorization", slog.String("error", err.Error()))
@@ -71,7 +73,6 @@ func (h *Handler) Check(c *gin.Context) {
 	}
 
 	span.SetAttributes(attribute.Bool("authz.allowed", true))
-	logger.InfoContext(ctx, "authorization allowed")
 
 	for k, v := range decision.Headers {
 		c.Header(k, v)

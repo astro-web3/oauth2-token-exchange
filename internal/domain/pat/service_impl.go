@@ -36,10 +36,6 @@ func (s *service) CreatePAT(
 		return nil, "", fmt.Errorf("failed to get user by username: %w", err)
 	}
 
-	logger.DebugContext(ctx, "Get machine user by username",
-		slog.String("machine_user", fmt.Sprintf("%+v", machineUser)),
-	)
-
 	if machineUser == nil {
 		machineUser, err = s.zitadelClient.CreateMachineUser(ctx, s.adminPAT, userID, preferredUsername, email)
 		if err != nil {
@@ -62,7 +58,8 @@ func (s *service) CreatePAT(
 
 	return &PAT{
 		ID:             zitadelPAT.ID,
-		UserID:         userID,
+		MachineUserID:  machineUser.ID,
+		HumanUserID:    userID,
 		ExpirationDate: zitadelPAT.ExpirationDate,
 		CreatedAt:      zitadelPAT.CreatedAt,
 	}, token, nil
@@ -87,7 +84,8 @@ func (s *service) ListPATs(ctx context.Context, userID string) ([]*PAT, error) {
 	for _, zp := range zitadelPATs {
 		pats = append(pats, &PAT{
 			ID:             zp.ID,
-			UserID:         userID,
+			MachineUserID:  machineUser.ID,
+			HumanUserID:    userID,
 			ExpirationDate: zp.ExpirationDate,
 			CreatedAt:      zp.CreatedAt,
 		})

@@ -94,35 +94,43 @@ func (s *service) AuthorizePAT(
 	var tokenResp *zitadel.TokenResponse
 	var parseErr error
 
-	if s.userInfoGetter != nil && s.adminPAT != "" {
-		userInfo, err := s.userInfoGetter.GetUserInfo(ctx, pat)
-		if err == nil && userInfo != nil {
-			client, ok := s.tokenExchanger.(zitadel.Client)
-			if ok {
-				tokenResp, err = client.ExchangeWithActor(
-					ctx,
-					userInfo.Username,
-					"urn:zitadel:params:oauth:token-type:user_id",
-					s.adminPAT,
-				)
-				if err != nil {
-					logger.WarnContext(ctx, "token exchange with actor failed, trying regular exchange", slog.String("error", err.Error()))
-					tokenResp, err = s.tokenExchanger.Exchange(ctx, pat)
-				}
-			} else {
-				tokenResp, err = s.tokenExchanger.Exchange(ctx, pat)
-			}
-		} else {
-			tokenResp, err = s.tokenExchanger.Exchange(ctx, pat)
-		}
-	} else {
-		tokenResp, err = s.tokenExchanger.Exchange(ctx, pat)
+	if s.userInfoGetter == nil || s.adminPAT == "" {
+		return &AuthzDecision{
+			Allow:  false,
+			Reason: "user info getter or admin pat is not set",
+		}, nil
 	}
+
+	userInfo, err := s.userInfoGetter.GetUserInfo(ctx, pat)
+
+	if err != nil || userInfo == nil {
+		logger.WarnContext(ctx, "failed to get user info", slog.String("error", err.Error()))
+		return &AuthzDecision{
+			Allow:  false,
+			Reason: fmt.Sprintf("failed to get user info or user info is nil: %v", err),
+		}, nil
+	}
+
+	client, ok := s.tokenExchanger.(zitadel.Client)
+
+	if !ok {
+		return &AuthzDecision{
+			Allow:  false,
+			Reason: "token exchanger is not a zitadel client",
+		}, nil
+	}
+
+	tokenResp, err = client.ExchangeWithActor(
+		ctx,
+		userInfo.Username,
+		"urn:zitadel:params:oauth:token-type:user_id",
+		s.adminPAT,
+	)
 
 	if err != nil {
 		return &AuthzDecision{
 			Allow:  false,
-			Reason: fmt.Sprintf("token exchange failed: %v", err),
+			Reason: fmt.Sprintf("token exchange with actor failed: %v", err),
 		}, nil
 	}
 
@@ -135,10 +143,11 @@ func (s *service) AuthorizePAT(
 	}
 
 	cachedToken := &cache.CachedToken{
-		AccessToken: tokenResp.AccessToken,
-		UserID:      idTokenClaims.Sub,
-		Email:       idTokenClaims.Email,
-		Groups:      idTokenClaims.Groups,
+		AccessToken:       tokenResp.AccessToken,
+		UserID:            idTokenClaims.Sub,
+		Email:             idTokenClaims.Email,
+		Groups:            idTokenClaims.Groups,
+		PreferredUsername: idTokenClaims.PreferredUsername,
 	}
 
 	if setErr := s.tokenCache.Set(ctx, patHash, cachedToken, cacheTTL); setErr != nil {
@@ -146,10 +155,11 @@ func (s *service) AuthorizePAT(
 	}
 
 	tokenClaims := &TokenClaims{
-		UserID: idTokenClaims.Sub,
-		Email:  idTokenClaims.Email,
-		Groups: idTokenClaims.Groups,
-		JWT:    tokenResp.AccessToken,
+		UserID:            idTokenClaims.Sub,
+		Email:             idTokenClaims.Email,
+		Groups:            idTokenClaims.Groups,
+		PreferredUsername: idTokenClaims.PreferredUsername,
+		JWT:               tokenResp.AccessToken,
 	}
 
 	return s.buildDecisionFromClaims(tokenClaims, headerKeys), nil
@@ -165,6 +175,9 @@ func (s *service) buildDecision(cached *cache.CachedToken, headerKeys map[string
 	}
 	if len(cached.Groups) > 0 {
 		headers[headerKeys["user_groups"]] = strings.Join(cached.Groups, ",")
+	}
+	if cached.PreferredUsername != "" {
+		headers[headerKeys["user_preferred_username"]] = cached.PreferredUsername
 	}
 	if cached.AccessToken != "" {
 		headers[headerKeys["user_jwt"]] = cached.AccessToken
@@ -187,6 +200,9 @@ func (s *service) buildDecisionFromClaims(claims *TokenClaims, headerKeys map[st
 	if len(claims.Groups) > 0 {
 		headers[headerKeys["user_groups"]] = strings.Join(claims.Groups, ",")
 	}
+	if claims.PreferredUsername != "" {
+		headers[headerKeys["user_preferred_username"]] = claims.PreferredUsername
+	}
 	if claims.JWT != "" {
 		headers[headerKeys["user_jwt"]] = claims.JWT
 	}
@@ -203,9 +219,10 @@ func hashPAT(pat string) string {
 }
 
 type idTokenClaims struct {
-	Sub    string   `json:"sub"`
-	Email  string   `json:"email"`
-	Groups []string `json:"groups"`
+	Sub               string   `json:"sub"`
+	Email             string   `json:"email"`
+	Groups            []string `json:"groups"`
+	PreferredUsername string   `json:"preferred_username"`
 }
 
 func parseIDTokenClaims(idToken string) (*idTokenClaims, error) {

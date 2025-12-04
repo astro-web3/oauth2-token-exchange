@@ -25,7 +25,7 @@ type Server struct {
 const idleTimeoutMultiplier = 2
 
 func NewServer(cfg *config.Config) (*Server, error) {
-	logger.InitLogger(cfg.Observability.LogLevel, cfg.Observability.Format)
+	logger.InitLogger(cfg.Observability.LogLevel, cfg.Observability.Format, cfg.Observability.LogSource)
 
 	otelCfg := otel.Config{
 		ServiceName:        "oauth2-token-exchange",

@@ -21,6 +21,7 @@ auth:
     user_id: "X-Auth-Request-User"
     user_email: "X-Auth-Request-Email"
     user_groups: "X-Auth-Request-Groups"
+    user_preferred_username: "X-Auth-Request-Preferred-Username"
     user_jwt: "X-Auth-Request-Access-Token"
 
 observability:
@@ -29,3 +30,4 @@ observability:
   tracing_endpoint_url: ""
   log_level: "info"
   log_format: "json"
+  log_source: false

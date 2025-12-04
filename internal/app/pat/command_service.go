@@ -2,11 +2,9 @@ package pat
 
 import (
 	"context"
-	"log/slog"
 	"time"
 
 	patdomain "github.com/astro-web3/oauth2-token-exchange/internal/domain/pat"
-	"github.com/astro-web3/oauth2-token-exchange/pkg/logger"
 	"github.com/astro-web3/oauth2-token-exchange/pkg/tracer"
 	"go.opentelemetry.io/otel/attribute"
 )
@@ -34,11 +32,6 @@ func (s *CommandService) CreatePAT(
 		attribute.String("pat.email", email),
 	)
 
-	logger.InfoContext(ctx, "creating PAT",
-		slog.String("user_id", userID),
-		slog.String("email", email),
-	)
-
 	pat, token, err := s.domainService.CreatePAT(ctx, userID, email, preferredUsername, expirationDate)
 	if err != nil {
 		span.RecordError(err)
@@ -46,7 +39,6 @@ func (s *CommandService) CreatePAT(
 	}
 
 	span.SetAttributes(attribute.String("pat.id", pat.ID))
-	logger.InfoContext(ctx, "PAT created successfully", slog.String("pat_id", pat.ID))
 
 	return pat, token, nil
 }
@@ -60,18 +52,11 @@ func (s *CommandService) DeletePAT(ctx context.Context, userID, patID string) er
 		attribute.String("pat.id", patID),
 	)
 
-	logger.InfoContext(ctx, "deleting PAT",
-		slog.String("user_id", userID),
-		slog.String("pat_id", patID),
-	)
-
 	err := s.domainService.DeletePAT(ctx, userID, patID)
 	if err != nil {
 		span.RecordError(err)
 		return err
 	}
 
-	logger.InfoContext(ctx, "PAT deleted successfully", slog.String("pat_id", patID))
 	return nil
 }
-

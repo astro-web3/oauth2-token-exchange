@@ -2,13 +2,15 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"time"
+
+	patv1 "github.com/astro-web3/oauth2-token-exchange/pb/gen/go/pat/v1"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 const (
@@ -18,34 +20,6 @@ const (
 	listPATsPath      = patServiceBase + "/ListPATs"
 	deletePATPath     = patServiceBase + "/DeletePAT"
 )
-
-type CreatePATRequest struct {
-	ExpirationDate int64 `json:"expiration_date"`
-}
-
-type CreatePATResponse struct {
-	Pat   PAT    `json:"pat"`
-	Token string `json:"token"`
-}
-
-type PAT struct {
-	ID             string `json:"id"`
-	UserID         string `json:"user_id"`
-	ExpirationDate int64  `json:"expiration_date"`
-	CreatedAt      int64  `json:"created_at"`
-}
-
-type ListPATsResponse struct {
-	Pats []PAT `json:"pats"`
-}
-
-type DeletePATRequest struct {
-	PatID string `json:"pat_id"`
-}
-
-type DeletePATResponse struct {
-	Success bool `json:"success"`
-}
 
 func main() {
 	if len(os.Args) < 4 {
@@ -73,33 +47,33 @@ func main() {
 	}
 	fmt.Printf("✅ CreatePAT test passed (PAT ID: %s, PAT Token: %s)\n\n", patID, patToken)
 
-	// if err := testListPATs(client, serverAddr, userID, email, preferredUsername); err != nil {
-	// 	log.Fatalf("❌ ListPATs test failed: %v", err)
-	// }
-	// fmt.Printf("✅ ListPATs test passed\n\n")
+	if err := testListPATs(client, serverAddr, userID, email, preferredUsername); err != nil {
+		log.Fatalf("❌ ListPATs test failed: %v", err)
+	}
+	fmt.Printf("✅ ListPATs test passed\n\n")
 
-	// if err := testAuthorizePAT(client, serverAddr, patToken); err != nil {
-	// 	log.Fatalf("❌ AuthorizePAT test failed: %v", err)
-	// }
-	// fmt.Printf("✅ AuthorizePAT test passed\n\n")
+	if err := testAuthorizePAT(client, serverAddr, patToken); err != nil {
+		log.Fatalf("❌ AuthorizePAT test failed: %v", err)
+	}
+	fmt.Printf("✅ AuthorizePAT test passed\n\n")
 
-	// if err := testDeletePAT(client, serverAddr, userID, email, preferredUsername, patID); err != nil {
-	// 	log.Fatalf("❌ DeletePAT test failed: %v", err)
-	// }
-	// fmt.Printf("✅ DeletePAT test passed\n\n")
+	if err := testDeletePAT(client, serverAddr, userID, email, preferredUsername, patID); err != nil {
+		log.Fatalf("❌ DeletePAT test failed: %v", err)
+	}
+	fmt.Printf("✅ DeletePAT test passed\n\n")
 
-	// fmt.Println("🎉 All E2E tests passed!")
+	fmt.Println("🎉 All E2E tests passed!")
 }
 
 func testCreatePAT(client *http.Client, serverAddr, userID, email, preferredUsername string) (string, string, error) {
 	fmt.Println("📝 Test: CreatePAT")
 
 	expirationDate := time.Now().Add(24 * time.Hour).Unix()
-	reqBody := CreatePATRequest{
+	reqBody := &patv1.CreatePATRequest{
 		ExpirationDate: expirationDate,
 	}
 
-	jsonBody, err := json.Marshal(reqBody)
+	jsonBody, err := protojson.Marshal(reqBody)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to marshal request: %w", err)
 	}
@@ -131,26 +105,34 @@ func testCreatePAT(client *http.Client, serverAddr, userID, email, preferredUser
 		return "", "", fmt.Errorf("unexpected status code: %d, body: %s", resp.StatusCode, string(body))
 	}
 
-	var createResp CreatePATResponse
-	if err := json.Unmarshal(body, &createResp); err != nil {
+	fmt.Printf("   CreatePAT response body: %s\n", string(body))
+
+	var createResp patv1.CreatePATResponse
+	if err := protojson.Unmarshal(body, &createResp); err != nil {
 		return "", "", fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
-	if createResp.Pat.ID == "" {
+	fmt.Printf("   CreatePAT response: Pat=%+v, Token=%s\n", createResp.Pat, createResp.GetToken())
+
+	if createResp.Pat == nil {
+		return "", "", fmt.Errorf("PAT is nil")
+	}
+	if createResp.Pat.GetId() == "" {
 		return "", "", fmt.Errorf("PAT ID is empty")
 	}
-	if createResp.Token == "" {
+	if createResp.GetToken() == "" {
 		return "", "", fmt.Errorf("PAT token is empty")
 	}
-	if createResp.Pat.UserID != userID {
-		return "", "", fmt.Errorf("user ID mismatch: expected %s, got %s", userID, createResp.Pat.UserID)
+	if createResp.Pat.GetHumanUserId() != userID {
+		return "", "", fmt.Errorf("human user ID mismatch: expected %s, got %s", userID, createResp.Pat.GetHumanUserId())
 	}
 
-	fmt.Printf("   Created PAT ID: %s\n", createResp.Pat.ID)
-	fmt.Printf("   User ID: %s\n", createResp.Pat.UserID)
-	fmt.Printf("   Expiration Date: %s\n", time.Unix(createResp.Pat.ExpirationDate, 0).Format(time.RFC3339))
+	fmt.Printf("   Created PAT ID: %s\n", createResp.Pat.GetId())
+	fmt.Printf("   Machine User ID: %s\n", createResp.Pat.GetMachineUserId())
+	fmt.Printf("   Human User ID: %s\n", createResp.Pat.GetHumanUserId())
+	fmt.Printf("   Expiration Date: %s\n", time.Unix(createResp.Pat.GetExpirationDate(), 0).Format(time.RFC3339))
 
-	return createResp.Pat.ID, createResp.Token, nil
+	return createResp.Pat.GetId(), createResp.GetToken(), nil
 }
 
 func testListPATs(client *http.Client, serverAddr, userID, email, preferredUsername string) error {
@@ -183,15 +165,15 @@ func testListPATs(client *http.Client, serverAddr, userID, email, preferredUsern
 		return fmt.Errorf("unexpected status code: %d, body: %s", resp.StatusCode, string(body))
 	}
 
-	var listResp ListPATsResponse
-	if err := json.Unmarshal(body, &listResp); err != nil {
+	var listResp patv1.ListPATsResponse
+	if err := protojson.Unmarshal(body, &listResp); err != nil {
 		return fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
 	fmt.Printf("   Found %d PAT(s)\n", len(listResp.Pats))
 	for i, pat := range listResp.Pats {
-		fmt.Printf("   PAT %d: ID=%s, UserID=%s, Expires=%s\n",
-			i+1, pat.ID, pat.UserID, time.Unix(pat.ExpirationDate, 0).Format(time.RFC3339))
+		fmt.Printf("   PAT %d: ID=%s, MachineUserID=%s, HumanUserID=%s, Expires=%s\n",
+			i+1, pat.GetId(), pat.GetMachineUserId(), pat.GetHumanUserId(), time.Unix(pat.GetExpirationDate(), 0).Format(time.RFC3339))
 	}
 
 	return nil
@@ -226,6 +208,7 @@ func testAuthorizePAT(client *http.Client, serverAddr, patToken string) error {
 	userID := resp.Header.Get("X-Auth-Request-User")
 	userEmail := resp.Header.Get("X-Auth-Request-Email")
 	userGroups := resp.Header.Get("X-Auth-Request-Groups")
+	userPreferredUsername := resp.Header.Get("X-Auth-Request-Preferred-Username")
 	userJWT := resp.Header.Get("X-Auth-Request-Access-Token")
 
 	fmt.Printf("   Authorization: ALLOWED\n")
@@ -237,6 +220,9 @@ func testAuthorizePAT(client *http.Client, serverAddr, patToken string) error {
 	}
 	if userGroups != "" {
 		fmt.Printf("   Groups: %s\n", userGroups)
+	}
+	if userPreferredUsername != "" {
+		fmt.Printf("   Preferred Username: %s\n", userPreferredUsername)
 	}
 	if userJWT != "" {
 		fmt.Printf("   Access Token: %s...\n", userJWT[:min(50, len(userJWT))])
@@ -255,11 +241,11 @@ func testAuthorizePAT(client *http.Client, serverAddr, patToken string) error {
 func testDeletePAT(client *http.Client, serverAddr, userID, email, preferredUsername, patID string) error {
 	fmt.Println("🗑️  Test: DeletePAT")
 
-	reqBody := DeletePATRequest{
-		PatID: patID,
+	reqBody := &patv1.DeletePATRequest{
+		PatId: patID,
 	}
 
-	jsonBody, err := json.Marshal(reqBody)
+	jsonBody, err := protojson.Marshal(reqBody)
 	if err != nil {
 		return fmt.Errorf("failed to marshal request: %w", err)
 	}
@@ -291,12 +277,12 @@ func testDeletePAT(client *http.Client, serverAddr, userID, email, preferredUser
 		return fmt.Errorf("unexpected status code: %d, body: %s", resp.StatusCode, string(body))
 	}
 
-	var deleteResp DeletePATResponse
-	if err := json.Unmarshal(body, &deleteResp); err != nil {
+	var deleteResp patv1.DeletePATResponse
+	if err := protojson.Unmarshal(body, &deleteResp); err != nil {
 		return fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
-	if !deleteResp.Success {
+	if !deleteResp.GetSuccess() {
 		return fmt.Errorf("delete operation returned success=false")
 	}
 
