@@ -447,6 +447,7 @@ linters:
     paths:
       - internal/transport/http/di.go
       - e2e/
+      - ^.*_test\.go$
     rules:
       - source: 'TODO'
         linters: [ godot ]

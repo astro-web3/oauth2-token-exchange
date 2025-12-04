@@ -11,6 +11,8 @@ import (
 
 const minServerErrorStatus = 500
 
+const healthzPath = "/healthz"
+
 func loggingMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
@@ -21,6 +23,10 @@ func loggingMiddleware() gin.HandlerFunc {
 
 		duration := time.Since(start)
 		status := c.Writer.Status()
+
+		if path == healthzPath {
+			return
+		}
 
 		if status >= minServerErrorStatus {
 			logger.ErrorContext(c.Request.Context(), "request failed",
