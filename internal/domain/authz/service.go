@@ -89,16 +89,22 @@ func (s *service) AuthorizePAT(
 	}
 
 	if err == nil && cached != nil {
+		if cached.IsInvalid {
+			return &AuthzDecision{
+				Allow:  false,
+				Reason: "cached invalid token",
+			}, nil
+		}
 		return s.buildDecision(cached, headerKeys), nil
 	}
 
 	var tokenResp *zitadel.TokenResponse
 	var parseErr error
 
-	if s.userInfoGetter == nil || s.adminPAT == "" {
+	if s.adminPAT == "" {
 		return &AuthzDecision{
 			Allow:  false,
-			Reason: "user info getter or admin pat is not set",
+			Reason: "admin PAT is not set",
 		}, nil
 	}
 
@@ -106,9 +112,18 @@ func (s *service) AuthorizePAT(
 
 	if err != nil || userInfo == nil {
 		logger.WarnContext(ctx, "failed to get user info", slog.String("error", err.Error()))
+
+		// Cache invalid token to prevent cache penetration
+		invalidToken := &cache.CachedToken{
+			IsInvalid: true,
+		}
+		if setErr := s.tokenCache.Set(ctx, patHash, invalidToken, cacheTTL); setErr != nil {
+			logger.WarnContext(ctx, "failed to cache invalid token", slog.String("error", setErr.Error()))
+		}
+
 		return &AuthzDecision{
 			Allow:  false,
-			Reason: fmt.Sprintf("failed to get user info or user info is nil: %v", err),
+			Reason: err.Error(),
 		}, nil
 	}
 

@@ -15,6 +15,7 @@ auth:
     issuer: ""
     client_id: ""
     client_secret: ""
+    # It's used to create machine users
     organization_id: ""
   cache_ttl: 5m
   header_keys:

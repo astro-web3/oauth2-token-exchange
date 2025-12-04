@@ -18,6 +18,7 @@ type CachedToken struct {
 	Email             string   `json:"email"`
 	Groups            []string `json:"groups"`
 	PreferredUsername string   `json:"preferred_username"`
+	IsInvalid         bool     `json:"is_invalid"` // true indicates an invalid token cached to prevent penetration
 }
 
 type TokenCache interface {
