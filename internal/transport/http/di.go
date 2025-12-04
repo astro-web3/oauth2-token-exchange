@@ -22,20 +22,23 @@ type Server struct {
 	httpServer *http.Server
 }
 
-const idleTimeoutMultiplier = 2
+const (
+	idleTimeoutMultiplier = 2
+	serviceName           = "oauth2-token-exchange"
+)
 
 func NewServer(cfg *config.Config) (*Server, error) {
 	logger.InitLogger(cfg.Observability.LogLevel, cfg.Observability.Format, cfg.Observability.LogSource)
 
 	otelCfg := otel.Config{
-		ServiceName:        "oauth2-token-exchange",
+		ServiceName:        serviceName,
 		EndpointURL:        cfg.Observability.TracingEndpointURL,
 		Enabled:            cfg.Observability.TraceEnabled,
 		SampleRatio:        1.0,
 		Insecure:           true,
 		ResourceAttributes: make(map[string]string),
 	}
-	if err := tracer.InitTracer("oauth2-token-exchange", otelCfg); err != nil {
+	if err := tracer.InitTracer(serviceName, otelCfg); err != nil {
 		return nil, fmt.Errorf("failed to initialize tracer: %w", err)
 	}
 

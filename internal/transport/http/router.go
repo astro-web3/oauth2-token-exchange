@@ -6,6 +6,7 @@ import (
 	"github.com/astro-web3/oauth2-token-exchange/internal/config"
 	patv1connect "github.com/astro-web3/oauth2-token-exchange/pb/gen/go/pat/v1/patv1connect"
 	"github.com/gin-gonic/gin"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
 
 func NewRouter(handler *Handler, cfg *config.Config, patHandler patv1connect.PATServiceHandler) *gin.Engine {
@@ -18,6 +19,9 @@ func NewRouter(handler *Handler, cfg *config.Config, patHandler patv1connect.PAT
 	router := gin.New()
 
 	router.Use(gin.Recovery())
+	if cfg.Observability.TraceEnabled {
+		router.Use(otelgin.Middleware(serviceName))
+	}
 	router.Use(loggingMiddleware())
 
 	router.GET("/healthz", func(c *gin.Context) {
