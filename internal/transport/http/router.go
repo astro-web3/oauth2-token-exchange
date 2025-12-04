@@ -4,10 +4,11 @@ import (
 	"net/http"
 
 	"github.com/astro-web3/oauth2-token-exchange/internal/config"
+	patv1connect "github.com/astro-web3/oauth2-token-exchange/pb/gen/go/pat/v1/patv1connect"
 	"github.com/gin-gonic/gin"
 )
 
-func NewRouter(handler *Handler, cfg *config.Config) *gin.Engine {
+func NewRouter(handler *Handler, cfg *config.Config, patHandler patv1connect.PATServiceHandler) *gin.Engine {
 	if cfg.Server.Mode == "release" {
 		gin.SetMode(gin.ReleaseMode)
 	} else {
@@ -24,6 +25,9 @@ func NewRouter(handler *Handler, cfg *config.Config) *gin.Engine {
 	})
 
 	router.Any("/oauth2/token-exchange/*path", handler.Check)
+
+	patServicePath, patServiceHandler := patv1connect.NewPATServiceHandler(patHandler)
+	router.Any(patServicePath+"/*method", gin.WrapH(patServiceHandler))
 
 	return router
 }

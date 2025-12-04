@@ -32,12 +32,28 @@ type Service interface {
 type service struct {
 	tokenCache     cache.TokenCache
 	tokenExchanger zitadel.TokenExchanger
+	userInfoGetter zitadel.UserInfoGetter
+	adminPAT       string
 }
 
 func NewService(tokenCache cache.TokenCache, tokenExchanger zitadel.TokenExchanger) Service {
 	return &service{
 		tokenCache:     tokenCache,
 		tokenExchanger: tokenExchanger,
+	}
+}
+
+func NewServiceWithMachineUserSupport(
+	tokenCache cache.TokenCache,
+	tokenExchanger zitadel.TokenExchanger,
+	userInfoGetter zitadel.UserInfoGetter,
+	adminPAT string,
+) Service {
+	return &service{
+		tokenCache:     tokenCache,
+		tokenExchanger: tokenExchanger,
+		userInfoGetter: userInfoGetter,
+		adminPAT:       adminPAT,
 	}
 }
 
@@ -75,7 +91,34 @@ func (s *service) AuthorizePAT(
 		return s.buildDecision(cached, headerKeys), nil
 	}
 
-	tokenResp, err := s.tokenExchanger.Exchange(ctx, pat)
+	var tokenResp *zitadel.TokenResponse
+	var parseErr error
+
+	if s.userInfoGetter != nil && s.adminPAT != "" {
+		userInfo, err := s.userInfoGetter.GetUserInfo(ctx, pat)
+		if err == nil && userInfo != nil {
+			client, ok := s.tokenExchanger.(zitadel.Client)
+			if ok {
+				tokenResp, err = client.ExchangeWithActor(
+					ctx,
+					userInfo.Username,
+					"urn:zitadel:params:oauth:token-type:user_id",
+					s.adminPAT,
+				)
+				if err != nil {
+					logger.WarnContext(ctx, "token exchange with actor failed, trying regular exchange", slog.String("error", err.Error()))
+					tokenResp, err = s.tokenExchanger.Exchange(ctx, pat)
+				}
+			} else {
+				tokenResp, err = s.tokenExchanger.Exchange(ctx, pat)
+			}
+		} else {
+			tokenResp, err = s.tokenExchanger.Exchange(ctx, pat)
+		}
+	} else {
+		tokenResp, err = s.tokenExchanger.Exchange(ctx, pat)
+	}
+
 	if err != nil {
 		return &AuthzDecision{
 			Allow:  false,

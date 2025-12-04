@@ -39,6 +39,10 @@ func (m *mockTokenExchanger) Exchange(ctx context.Context, pat string) (*zitadel
 	}, nil
 }
 
+func (m *mockTokenExchanger) ExchangeWithActor(ctx context.Context, subjectToken, subjectTokenType, actorToken string) (*zitadel.TokenResponse, error) {
+	return m.Exchange(ctx, subjectToken)
+}
+
 func TestService_AuthorizePAT_EmptyPAT(t *testing.T) {
 	svc := authz.NewService(&mockTokenCache{tokens: make(map[string]*cache.CachedToken)}, &mockTokenExchanger{})
 

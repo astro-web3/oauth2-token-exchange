@@ -24,10 +24,14 @@ type Config struct {
 	} `mapstructure:"redis"`
 
 	Auth struct {
+		AdminMachineUser struct {
+			PAT string `mapstructure:"pat"`
+		} `mapstructure:"admin_machine_user"`
 		Zitadel struct {
-			Issuer       string `mapstructure:"issuer"`
-			ClientID     string `mapstructure:"client_id"`
-			ClientSecret string `mapstructure:"client_secret"`
+			Issuer         string `mapstructure:"issuer"`
+			ClientID       string `mapstructure:"client_id"`
+			ClientSecret   string `mapstructure:"client_secret"`
+			OrganizationID string `mapstructure:"organization_id"`
 		} `mapstructure:"zitadel"`
 		CacheTTL   time.Duration `mapstructure:"cache_ttl"`
 		HeaderKeys struct {
@@ -43,6 +47,7 @@ type Config struct {
 		TraceEnabled       bool   `mapstructure:"trace_enabled"`
 		TracingEndpointURL string `mapstructure:"tracing_endpoint_url"`
 		LogLevel           string `mapstructure:"log_level"`
+		Format             string `mapstructure:"log_format"`
 	} `mapstructure:"observability"`
 }
 

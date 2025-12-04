@@ -31,7 +31,8 @@ func getClient() *resty.Client {
 		client = resty.New().
 			SetTimeout(DefaultTimeout).
 			SetRetryCount(DefaultRetry).
-			SetHeader("Content-Type", "application/json")
+			SetHeader("Content-Type", "application/json").
+			SetHeader("Accept", "application/json")
 	})
 	return client
 }
@@ -97,6 +98,21 @@ func GetJSON(ctx context.Context, url, token string, result any) (*resty.Respons
 		SetResult(result).
 		SetError(result).
 		Get(url)
+
+	recordSpan(span, resp, err)
+	return resp, err
+}
+
+func DeleteJSON(ctx context.Context, url, token string, result any) (*resty.Response, error) {
+	ctx, span := startClientSpan(ctx, "http.DeleteJSON", http.MethodDelete, url)
+	defer span.End()
+
+	resp, err := getClient().R().
+		SetContext(ctx).
+		SetAuthToken(token).
+		SetResult(result).
+		SetError(result).
+		Delete(url)
 
 	recordSpan(span, resp, err)
 	return resp, err

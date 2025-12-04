@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package pat.v1;
+
+import "pat/v1/types.proto";
+
+option go_package = "github.com/astro-web3/oauth2-token-exchange/pb/gen/go/pat/v1";
+
+message CreatePATResponse {
+  PAT pat = 1;
+  string token = 2;
+}
+
+message ListPATsResponse {
+  repeated PAT pats = 1;
+}
+
+message DeletePATResponse {
+  bool success = 1;
+}
+

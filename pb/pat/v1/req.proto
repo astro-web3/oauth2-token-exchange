@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package pat.v1;
+
+import "buf/validate/validate.proto";
+
+option go_package = "github.com/astro-web3/oauth2-token-exchange/pb/gen/go/pat/v1";
+
+message CreatePATRequest {
+  int64 expiration_date = 1 [(buf.validate.field).int64.gte = 0];
+}
+
+message ListPATsRequest {
+}
+
+message DeletePATRequest {
+  string pat_id = 1 [(buf.validate.field).string.min_len = 1];
+}
+

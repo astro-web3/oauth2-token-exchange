@@ -9,10 +9,13 @@ redis:
   pool_size: 50
 
 auth:
+  admin_machine_user:
+    pat: ""
   zitadel:
     issuer: ""
     client_id: ""
     client_secret: ""
+    organization_id: ""
   cache_ttl: 5m
   header_keys:
     user_id: "X-Auth-Request-User"
@@ -25,3 +28,4 @@ observability:
   trace_enabled: false
   tracing_endpoint_url: ""
   log_level: "info"
+  log_format: "json"

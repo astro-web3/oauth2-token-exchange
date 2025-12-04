@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package pat.v1;
+
+option go_package = "github.com/astro-web3/oauth2-token-exchange/pb/gen/go/pat/v1";
+
+message PAT {
+  string id = 1;
+  string user_id = 2;
+  int64 expiration_date = 3;
+  int64 created_at = 4;
+}
+

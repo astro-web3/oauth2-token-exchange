@@ -6,10 +6,13 @@ import (
 	"net/http"
 
 	authzapp "github.com/astro-web3/oauth2-token-exchange/internal/app/authz"
+	patapp "github.com/astro-web3/oauth2-token-exchange/internal/app/pat"
 	"github.com/astro-web3/oauth2-token-exchange/internal/config"
 	authzdomain "github.com/astro-web3/oauth2-token-exchange/internal/domain/authz"
+	patdomain "github.com/astro-web3/oauth2-token-exchange/internal/domain/pat"
 	"github.com/astro-web3/oauth2-token-exchange/internal/infra/cache"
 	"github.com/astro-web3/oauth2-token-exchange/internal/infra/zitadel"
+	pathandler "github.com/astro-web3/oauth2-token-exchange/internal/transport/http/handler"
 	"github.com/astro-web3/oauth2-token-exchange/pkg/logger"
 	"github.com/astro-web3/oauth2-token-exchange/pkg/otel"
 	"github.com/astro-web3/oauth2-token-exchange/pkg/tracer"
@@ -22,7 +25,7 @@ type Server struct {
 const idleTimeoutMultiplier = 2
 
 func NewServer(cfg *config.Config) (*Server, error) {
-	logger.InitLogger(cfg.Observability.LogLevel, "json")
+	logger.InitLogger(cfg.Observability.LogLevel, cfg.Observability.Format)
 
 	otelCfg := otel.Config{
 		ServiceName:        "oauth2-token-exchange",
@@ -42,17 +45,33 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	}
 
 	tokenCache := cache.NewTokenCache(redisClient)
-	tokenExchanger := zitadel.NewClient(
+	zitadelClient := zitadel.NewClient(
 		cfg.Auth.Zitadel.Issuer,
 		cfg.Auth.Zitadel.ClientID,
 		cfg.Auth.Zitadel.ClientSecret,
+		cfg.Auth.Zitadel.OrganizationID,
 	)
 
-	domainService := authzdomain.NewService(tokenCache, tokenExchanger)
-	appService := authzapp.NewService(domainService)
+	var authzDomainService authzdomain.Service
+	if cfg.Auth.AdminMachineUser.PAT != "" {
+		authzDomainService = authzdomain.NewServiceWithMachineUserSupport(
+			tokenCache,
+			zitadelClient,
+			zitadelClient,
+			cfg.Auth.AdminMachineUser.PAT,
+		)
+	} else {
+		authzDomainService = authzdomain.NewService(tokenCache, zitadelClient)
+	}
+	appService := authzapp.NewService(authzDomainService)
+
+	patDomainService := patdomain.NewService(zitadelClient, cfg.Auth.AdminMachineUser.PAT)
+	patCommandService := patapp.NewCommandService(patDomainService)
+	patQueryService := patapp.NewQueryService(patDomainService)
+	patHandler := pathandler.NewPATHandler(patCommandService, patQueryService)
 
 	handler := NewHandler(appService, cfg)
-	router := NewRouter(handler, cfg)
+	router := NewRouter(handler, cfg, patHandler)
 
 	httpServer := &http.Server{
 		Addr:         cfg.Server.Addr,
