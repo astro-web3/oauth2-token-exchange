@@ -51,6 +51,10 @@ type Config struct {
 		Format             string `mapstructure:"log_format"`
 		LogSource          bool   `mapstructure:"log_source"`
 	} `mapstructure:"observability"`
+
+	CORS struct {
+		AllowedOrigins []string `mapstructure:"allowed_origins"`
+	} `mapstructure:"cors"`
 }
 
 func MustLoad() *Config {

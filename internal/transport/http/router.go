@@ -23,6 +23,7 @@ func NewRouter(handler *Handler, cfg *config.Config, patHandler patv1connect.PAT
 		router.Use(otelgin.Middleware(serviceName))
 	}
 	router.Use(loggingMiddleware())
+	router.Use(corsMiddleware(cfg))
 
 	router.GET("/healthz", func(c *gin.Context) {
 		c.String(http.StatusOK, "ok")
