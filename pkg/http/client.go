@@ -3,7 +3,6 @@ package http
 import (
 	"context"
 	"net/http"
-	"net/url"
 	"sync"
 	"time"
 
@@ -42,80 +41,92 @@ func Client() *resty.Client {
 	return getClient()
 }
 
-func PostJSON(ctx context.Context, url, token string, body, result any) (*resty.Response, error) {
-	ctx, span := startClientSpan(ctx, "http.PostJSON", http.MethodPost, url)
-	defer span.End()
+type RequestOption func(*resty.Request)
 
-	resp, err := getClient().R().
-		SetContext(ctx).
-		SetAuthToken(token).
-		SetBody(body).
-		SetResult(result).
-		SetError(result).
-		Post(url)
-
-	recordSpan(span, resp, err)
-	return resp, err
+func WithAuthToken(token string) RequestOption {
+	return func(r *resty.Request) {
+		r.SetAuthToken(token)
+	}
 }
 
-func PostForm(
-	ctx context.Context,
-	url string,
-	form url.Values,
-	basicUser string,
-	basicPass string,
-	result any,
-) (*resty.Response, error) {
-	ctx, span := startClientSpan(ctx, "http.PostForm", http.MethodPost, url)
+func WithBasicAuth(user, pass string) RequestOption {
+	return func(r *resty.Request) {
+		if user != "" {
+			r.SetBasicAuth(user, pass)
+		}
+	}
+}
+
+func WithBody(body any) RequestOption {
+	return func(r *resty.Request) {
+		r.SetBody(body)
+	}
+}
+
+func WithResult(result any) RequestOption {
+	return func(r *resty.Request) {
+		if result != nil {
+			r.SetResult(result).SetError(result)
+		}
+	}
+}
+
+func WithHeader(key, value string) RequestOption {
+	return func(r *resty.Request) {
+		r.SetHeader(key, value)
+	}
+}
+
+func WithContentType(contentType string) RequestOption {
+	return func(r *resty.Request) {
+		r.SetHeader("Content-Type", contentType)
+	}
+}
+
+func Request(ctx context.Context, method, url string, opts ...RequestOption) (*resty.Response, error) {
+	ctx, span := startClientSpan(ctx, "http.Request", method, url)
 	defer span.End()
 
-	request := getClient().R().
-		SetContext(ctx).
-		SetHeader("Content-Type", "application/x-www-form-urlencoded").
-		SetBody(form.Encode())
+	request := getClient().R().SetContext(ctx)
 
-	if basicUser != "" {
-		request.SetBasicAuth(basicUser, basicPass)
+	for _, opt := range opts {
+		opt(request)
 	}
 
-	if result != nil {
-		request.SetResult(result).
-			SetError(result)
+	injectTracingHeaders(ctx, request)
+
+	var resp *resty.Response
+	var err error
+
+	switch method {
+	case http.MethodGet:
+		resp, err = request.Get(url)
+	case http.MethodPost:
+		resp, err = request.Post(url)
+	case http.MethodPut:
+		resp, err = request.Put(url)
+	case http.MethodPatch:
+		resp, err = request.Patch(url)
+	case http.MethodDelete:
+		resp, err = request.Delete(url)
+	default:
+		resp, err = request.Execute(method, url)
 	}
 
-	resp, err := request.Post(url)
 	recordSpan(span, resp, err)
 	return resp, err
 }
 
-func GetJSON(ctx context.Context, url, token string, result any) (*resty.Response, error) {
-	ctx, span := startClientSpan(ctx, "http.GetJSON", http.MethodGet, url)
-	defer span.End()
-
-	resp, err := getClient().R().
-		SetContext(ctx).
-		SetAuthToken(token).
-		SetResult(result).
-		SetError(result).
-		Get(url)
-
-	recordSpan(span, resp, err)
-	return resp, err
+func Get(ctx context.Context, url string, opts ...RequestOption) (*resty.Response, error) {
+	return Request(ctx, http.MethodGet, url, opts...)
 }
 
-func DeleteJSON(ctx context.Context, url, token string, result any) (*resty.Response, error) {
-	ctx, span := startClientSpan(ctx, "http.DeleteJSON", http.MethodDelete, url)
-	defer span.End()
+func Post(ctx context.Context, url string, opts ...RequestOption) (*resty.Response, error) {
+	return Request(ctx, http.MethodPost, url, opts...)
+}
 
-	resp, err := getClient().R().
-		SetContext(ctx).
-		SetAuthToken(token).
-		SetResult(result).
-		SetError(result).
-		Delete(url)
-
-	recordSpan(span, resp, err)
-	return resp, err
+func Delete(ctx context.Context, url string, opts ...RequestOption) (*resty.Response, error) {
+	return Request(ctx, http.MethodDelete, url, opts...)
 }
 
 func startClientSpan(
