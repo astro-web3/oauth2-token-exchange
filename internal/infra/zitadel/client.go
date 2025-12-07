@@ -239,7 +239,13 @@ func (c *zitadelClient) GetMachineUserByUsername(ctx context.Context, adminPAT, 
 
 	var result ListUsersResponse
 
-	resp, err := httpclient.Post(ctx, searchEndpoint, httpclient.WithAuthToken(adminPAT), httpclient.WithBody(reqBody), httpclient.WithResult(&result))
+	resp, err := httpclient.Post(
+		ctx,
+		searchEndpoint,
+		httpclient.WithAuthToken(adminPAT),
+		httpclient.WithBody(reqBody),
+		httpclient.WithResult(&result),
+	)
 
 	if err != nil {
 		logger.ErrorContext(ctx, "Get machine user by username request failed",
@@ -332,7 +338,13 @@ func (c *zitadelClient) CreateMachineUser(
 
 	var result CreateUserResponse
 
-	resp, err := httpclient.Post(ctx, createEndpoint, httpclient.WithAuthToken(adminPAT), httpclient.WithBody(reqBody), httpclient.WithResult(&result))
+	resp, err := httpclient.Post(
+		ctx,
+		createEndpoint,
+		httpclient.WithAuthToken(adminPAT),
+		httpclient.WithBody(reqBody),
+		httpclient.WithResult(&result),
+	)
 	if err != nil {
 		logger.ErrorContext(ctx, "Create machine user request failed",
 			slog.String("endpoint", createEndpoint),
@@ -416,7 +428,13 @@ func (c *zitadelClient) AddPersonalAccessToken(
 
 	var result AddPersonalAccessTokenResponse
 
-	resp, err := httpclient.Post(ctx, createEndpoint, httpclient.WithAuthToken(adminPAT), httpclient.WithBody(reqBody), httpclient.WithResult(&result))
+	resp, err := httpclient.Post(
+		ctx,
+		createEndpoint,
+		httpclient.WithAuthToken(adminPAT),
+		httpclient.WithBody(reqBody),
+		httpclient.WithResult(&result),
+	)
 	if err != nil {
 		logger.ErrorContext(ctx, "Add personal access token request failed",
 			slog.String("endpoint", createEndpoint),
@@ -483,7 +501,13 @@ func (c *zitadelClient) ListPersonalAccessTokens(
 
 	var result ListPersonalAccessTokensResponse
 
-	resp, err := httpclient.Post(ctx, listEndpoint, httpclient.WithAuthToken(adminPAT), httpclient.WithBody(reqBody), httpclient.WithResult(&result))
+	resp, err := httpclient.Post(
+		ctx,
+		listEndpoint,
+		httpclient.WithAuthToken(adminPAT),
+		httpclient.WithBody(reqBody),
+		httpclient.WithResult(&result),
+	)
 	if err != nil {
 		logger.ErrorContext(ctx, "List personal access tokens request failed",
 			slog.String("endpoint", listEndpoint),
@@ -541,7 +565,12 @@ func (c *zitadelClient) RemovePersonalAccessToken(ctx context.Context, adminPAT,
 
 	var result RemovePersonalAccessTokenResponse
 
-	resp, err := httpclient.Delete(ctx, deleteEndpoint, httpclient.WithAuthToken(adminPAT), httpclient.WithResult(&result))
+	resp, err := httpclient.Delete(
+		ctx,
+		deleteEndpoint,
+		httpclient.WithAuthToken(adminPAT),
+		httpclient.WithResult(&result),
+	)
 	if err != nil {
 		logger.ErrorContext(ctx, "Remove personal access token request failed",
 			slog.String("endpoint", deleteEndpoint),
